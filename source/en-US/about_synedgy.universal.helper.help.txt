@@ -1,0 +1,23 @@
+TOPIC
+    about_synedgy.universal.helper
+
+SHORT DESCRIPTION
+    A bunch of PowerShell Universal helpers to make your experience more productive
+
+LONG DESCRIPTION
+    A bunch of PowerShell Universal helpers to make your experience more productive
+
+EXAMPLES
+    PS C:\> {{ add examples here }}
+
+NOTE:
+    Thank you to all those who contributed to this module, by writing code, sharing opinions, and provided feedback.
+
+TROUBLESHOOTING NOTE:
+    Look out on the Github repository for issues and new releases.
+
+SEE ALSO
+    - {{ Please add Project URI such as github }}
+
+KEYWORDS
+    {{ Add comma separated keywords here }}
