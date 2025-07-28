@@ -17,6 +17,11 @@ function Import-PSUEndpoint
         $ApiPrefix,
 
         [Parameter()]
+        [switch]
+        # Force authentication on the endpoint regardless of its configuration.
+        $Authentication,
+
+        [Parameter()]
         [ValidateSet('Information','Debug', 'Verbose')]
         [string[]]
         $LogLevel = 'Information'
@@ -37,6 +42,11 @@ function Import-PSUEndpoint
     if ($PSBoundParameters.ContainsKey('ApiPrefix'))
     {
         $moduleApiEndpointParams['ApiPrefix'] = $ApiPrefix
+    }
+
+    if ($PSBoundParameters.ContainsKey('Authentication'))
+    {
+        $moduleApiEndpointParams['Authentication'] = $Authentication
     }
 
     if ($PSBoundParameters.ContainsKey('LogLevel'))

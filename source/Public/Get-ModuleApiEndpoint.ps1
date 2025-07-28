@@ -30,6 +30,10 @@ function Get-ModuleApiEndpoint
         $Environment,
 
         [Parameter()]
+        [switch]
+        $Authentication,
+
+        [Parameter()]
         [string]
         $ApiPrefix
     )
