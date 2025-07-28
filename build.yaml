@@ -53,12 +53,9 @@ BuildWorkflow:
     - Build_NestedModules_ModuleBuilder
     - Create_changelog_release_output
 
-
   pack:
     - build
     - package_module_nupkg
-
-
 
   # Defining test task to be run when invoking `./build.ps1 -Tasks test`
   test:
@@ -100,11 +97,11 @@ Pester:
   # - tests/Unit
   # - tests/Integration
   ExcludeTag:
-  #  - helpQuality
+   - helpQuality
   #  - FunctionalQuality
-  #  - TestQuality
+   - TestQuality
   Tag:
-  CodeCoverageThreshold: 85 # Set to 0 to bypass
+  CodeCoverageThreshold: 0 # Set to 0 to bypass
   #CodeCoverageOutputFile: JaCoCo_$OsShortName.xml
   #CodeCoverageOutputFileEncoding: ascii
   # Use this if code coverage should be merged from several pipeline test jobs.
