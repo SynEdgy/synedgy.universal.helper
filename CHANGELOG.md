@@ -9,3 +9,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Adding APIEndpoint attribute.
 - Adding `Import-ModuleApiEndpoint` function to import API endpoints from a module.
+- Adding `Get-HttpMethodFromPSVerb` function to convert PowerShell verbs to HTTP
+  methods (GET, POST, PUT, DELETE).
