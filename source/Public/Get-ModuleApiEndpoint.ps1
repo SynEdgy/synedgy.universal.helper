@@ -74,7 +74,7 @@ function Get-ModuleApiEndpoint
             }
             else
             {
-                $url = (('/{0}/{1}/{2}' -f $endpoints.Name, $ApiEndpoint.version, $urlPath.TrimStart('/')).ToLower()) -replace '//', '/'
+                $url = (('/{0}/{1}/{2}/{3}' -f $ApiEndpoint.apiPrefix, $ApiEndpoint.Name, $ApiEndpoint.version, $urlPath.TrimStart('/')).ToLower()) -replace '//', '/'
             }
 
             Write-Information -MessageData "Processing endpoint: $url for function: $($functionEndpoint.Name)"
