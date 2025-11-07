@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed issue with URL generation in `Get-ModuleApiEndpoint` function to correctly
+  include API prefix.
+
 ### Added
 
 - Adding APIEndpoint attribute.
