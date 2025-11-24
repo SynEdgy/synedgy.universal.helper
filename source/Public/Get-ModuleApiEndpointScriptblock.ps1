@@ -41,8 +41,9 @@ function Get-ModuleApiEndpointScriptblock
         $startOffSet = $parameter.Name.Extent.StartOffset - $paramBlock.Extent.StartOffset
         $paramBlockStr = $paramBlockStr.Remove($startOffSet,$newParamName.Length).Insert($startOffSet,$newParamName)
 
-        #TODO: Change switch parameter to bool
+        #TODO: Change switch parameter to bool if PSU prefers that
     }
+    #TODO: Add the Inputs/Outputs documentation to the CBH section
     #endregion
 
     if ($PSBoundParameters.ContainsKey('Environment'))

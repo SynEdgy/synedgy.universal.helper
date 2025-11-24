@@ -74,8 +74,9 @@ BuildWorkflow:
 
   publish:
     - Publish_Release_To_GitHub # Runs first, if token is expired it will fail early
-
     - publish_module_to_gallery
+    # - Publish_GitHub_Wiki_Content
+    # - Create_ChangeLog_GitHub_PR # is called in the Azure Pipeline Yaml after a successful publish
 
 ####################################################
 #       PESTER  Configuration                      #

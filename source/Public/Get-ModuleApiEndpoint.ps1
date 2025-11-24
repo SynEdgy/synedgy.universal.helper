@@ -39,6 +39,7 @@ function Get-ModuleApiEndpoint
     )
 
     # TODO: Load module in Thread and process it there (once done the thread is closed and DLL handles freed)
+    # $thread = [powershell]::Create([System.Management.Automation.RunspaceMode]::CurrentRunspace)
     $apiModule = Get-Module $Module -ErrorAction Stop
     Write-Verbose -Message ('Module: {0} Version: {1}' -f $apiModule.Name, $apiModule.Version)
     $endpoints = $apiModule.ExportedFunctions.Values.Where{
@@ -57,11 +58,16 @@ function Get-ModuleApiEndpoint
             $_.TypeId.ToString() -eq 'APIEndpoint' -and $_.IsEndpoint -eq $true
         }
 
+        # TODO: $ApiInputs = $functionEndpoint.ScriptBlock.Attributes.Where{ $_.TypeId.ToString() -eq 'APIInput'}
+        # TODO: $ApiOutputs = $functionEndpoint.ScriptBlock.Attributes.Where{ $_.TypeId.ToString() -eq 'APIOutput'}
+
         foreach ($ApiEndpoint in $ApiEndpoints)
         {
             $urlPath = $ApiEndpoint.Path
             $version = $ApiEndpoint.version
             $Name = $ApiEndpoint.Name
+            $documentation = $ApiEndpoint.Documentation
+            $apiPrefix = $ApiEndpoint.ApiPrefix
 
             if ([string]::IsNullOrEmpty($urlPath))
             {
@@ -70,17 +76,21 @@ function Get-ModuleApiEndpoint
 
             if ($PSBoundParameters.ContainsKey('ApiPrefix'))
             {
-                $url = ('{0}/{1}' -f $PSBoundParameters['ApiPrefix'], $urlPath.TrimStart('/').ToLower()) -replace '//', '/'
+                $apiPrefix = $PSBoundParameters['ApiPrefix']
+                # Building the /{apiPrefix}/endpoint style URL
+                # not using the endpoint versioning from the attribute
+                $url = ('{0}/{1}' -f $apiPrefix, $urlPath.TrimStart('/').ToLower()) -replace '//', '/'
             }
             else
             {
-                $url = (('/{0}/{1}/{2}/{3}' -f $ApiEndpoint.apiPrefix, $ApiEndpoint.Name, $ApiEndpoint.version, $urlPath.TrimStart('/')).ToLower()) -replace '//', '/'
+                # Building the /api/v1/endpoint style URL
+                $url = (('/{0}/{1}/{2}' -f $apiPrefix, $version, $urlPath.TrimStart('/')).ToLower()) -replace '//', '/'
             }
 
             Write-Information -MessageData "Processing endpoint: $url for function: $($functionEndpoint.Name)"
             if ([string]::IsNullOrEmpty($Name))
             {
-                $Name = '{0}{1}{2}' -f $functionEndpoint.verb.ToLower(), $functionEndpoint.Noun,$version
+                $Name = '{0}{1}{2}' -f $functionEndpoint.verb.ToLower(), $functionEndpoint.Noun, $version
             }
 
             $description = $ApiEndpoint.Description
@@ -101,6 +111,11 @@ function Get-ModuleApiEndpoint
                 Description  = $description
                 Method       = $method
                 FunctionInfo = $functionEndpoint
+            }
+
+            if (-not [string]::IsNullOrEmpty($documentation))
+            {
+                $apiEndpointData['Documentation'] = $documentation
             }
 
             if ($PSBoundParameters.ContainsKey('LogLevel'))
@@ -124,9 +139,9 @@ function Get-ModuleApiEndpoint
 
             if ($PSBoundParameters.ContainsKey('Authentication'))
             {
-                $apiEndpointData['Authentication'] = $PSBoundParameters['Authentication']
+                $apiEndpointData['Authentication'] = $Authentication.IsPresent
             }
-            elseif ($ApiEndpoint.Authentication)
+            else
             {
                 $apiEndpointData['Authentication'] = $ApiEndpoint.Authentication
             }

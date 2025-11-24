@@ -3,6 +3,9 @@
 # If classes/types are specified here, they won't be fully qualified (careful with conflicts)
 $typesToExportAsIs = @(
     'APIEndpoint'
+    'Documentation'
+    'APIInput'
+    'APIOutput'
 )
 
 # The type accelerators created will be ModuleName.ClassName (to avoid conflicts with other modules until you use 'using moduleName'
