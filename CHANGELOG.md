@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed issue with `ApiPrefix` property not being applied correctly in URL generation.
 - Fixed issue where `Authentication` property in `APIEndpoint` attribute was not
 working.
+- Fixed changelog git config to publish PR.
 
 ### Added
 
