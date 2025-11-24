@@ -78,6 +78,19 @@ BuildWorkflow:
     # - Publish_GitHub_Wiki_Content
     # - Create_ChangeLog_GitHub_PR # is called in the Azure Pipeline Yaml after a successful publish
 
+
+####################################################
+#       GITHUB  Configuration                      #
+####################################################
+
+GitHubConfig:
+  GitHubFilesToAdd:
+    - 'CHANGELOG.md'
+  ReleaseAssets: []
+  GitHubConfigUserName: dscbot
+  GitHubConfigUserEmail: dsccommunity@outlook.com
+  UpdateChangelogOnPrerelease: false
+
 ####################################################
 #       PESTER  Configuration                      #
 ####################################################
