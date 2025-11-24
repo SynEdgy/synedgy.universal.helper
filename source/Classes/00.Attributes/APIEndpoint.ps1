@@ -3,7 +3,8 @@ class APIEndpoint : System.Attribute
     [bool]$IsEndpoint = $true # Indicates that this is an API endpoint attribute
     [bool]$AutoSerialization = $true # Whether the endpoint should automatically serialize the output to JSON
     [string]$Name
-    [string]$version = 'v1' # Version of the API endpoint
+    [string]$ApiPrefix = 'api' # Prefix for the API endpoint URL
+    [string]$Version = 'v1' # Version of the API endpoint
     [string]$Path # aka the URL path of the endpoint
     [string]$Description # Description of the endpoint
     [ValidateSet('GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD')]

@@ -17,6 +17,12 @@ function Import-PSUEndpoint
         $ApiPrefix,
 
         [Parameter()]
+        [string]
+        # Name of the documentation endpoint to use for this endpoint.
+        # If not specified, the one defined by the attribute will be used, or the default one.
+        $Documentation,
+
+        [Parameter()]
         [switch]
         # Force authentication on the endpoint regardless of its configuration.
         $Authentication,
@@ -52,6 +58,11 @@ function Import-PSUEndpoint
     if ($PSBoundParameters.ContainsKey('LogLevel'))
     {
         $moduleApiEndpointParams['LogLevel'] = $LogLevel
+    }
+
+    if ($PSBoundParameters.ContainsKey('Documentation'))
+    {
+        $moduleEndpointScriptblockParameters['Documentation'] = $Documentation
     }
 
     $endpoints = Get-ModuleApiEndpoint @moduleApiEndpointParams
