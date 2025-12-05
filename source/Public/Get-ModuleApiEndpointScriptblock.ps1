@@ -33,13 +33,15 @@ function Get-ModuleApiEndpointScriptblock
     $paramBlock.Parameters | ForEach-Object {
         # Update $_.Name to be camelCase
         $parameter = $_
+        $oldParamName = $parameter.Name.VariablePath.UserPath
 
         # If the parameter name is not in camelCase, convert it
-        $FirstChar = $parameter.Name.Extent.text.Substring(1, 1) # first letter after the $
-        $RestOfName = $parameter.Name.Extent.text.Substring(2) # rest of the name after the first letter
-        $newParamName = '${0}{1}' -f $FirstChar.ToLowerInvariant(),$RestOfName
+        $FirstChar = $oldParamName.Substring(0, 1) # first letter after the $
+        $RestOfName = $oldParamName.Substring(1) # rest of the name after the first letter
+        $newParamName = '{0}{1}' -f $FirstChar.ToLowerInvariant(),$RestOfName
+        $replacedParamName = $parameter.Name.Extent.text -creplace ([regex]::Escape($oldParamName)), $newParamName
         $startOffSet = $parameter.Name.Extent.StartOffset - $paramBlock.Extent.StartOffset
-        $paramBlockStr = $paramBlockStr.Remove($startOffSet,$newParamName.Length).Insert($startOffSet,$newParamName)
+        $paramBlockStr = $paramBlockStr.Remove($startOffSet,$replacedParamName.Length).Insert($startOffSet,$replacedParamName)
 
         #TODO: Change switch parameter to bool if PSU prefers that
     }

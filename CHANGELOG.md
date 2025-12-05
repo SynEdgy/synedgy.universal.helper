@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed issue with URL generation in `Get-ModuleApiEndpoint` function to correctly
   include API prefix.
-- Fixing typo in `Import-ModuleApiEndpoint` function documentation. ([#3])
+- Fixed issue with `${}` notation in parameter names ([[#1](https://github.com/SynEdgy/synedgy.universal.helper/issues/1)]).
+- Fixing typo in `Import-ModuleApiEndpoint` function documentation. ([#3](https://github.com/SynEdgy/synedgy.universal.helper/issues/3))
 - Fixed bug in `Get-HttpMethodFromPSVerb` function to correctly map PowerShell
   verbs to HTTP methods.
 - Fixed issue with `ApiPrefix` property not being applied correctly in URL generation.
