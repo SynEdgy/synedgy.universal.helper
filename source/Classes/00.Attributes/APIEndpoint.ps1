@@ -7,6 +7,7 @@ class APIEndpoint : System.Attribute
     [string]$Version = 'v1' # Version of the API endpoint
     [string]$Path # aka the URL path of the endpoint
     [string]$Description # Description of the endpoint
+    [string]$Documentation # Documentation name the endpoint should be attached to
     [ValidateSet('GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD')]
     [string[]]$Method # HTTP method (GET, POST, PUT, DELETE, etc.)
     [bool]$Authentication = $false # Whether the endpoint requires authentication

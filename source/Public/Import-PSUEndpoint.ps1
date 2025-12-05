@@ -62,7 +62,7 @@ function Import-PSUEndpoint
 
     if ($PSBoundParameters.ContainsKey('Documentation'))
     {
-        $moduleEndpointScriptblockParameters['Documentation'] = $Documentation
+        $moduleApiEndpointParams['Documentation'] = $Documentation
     }
 
     $endpoints = Get-ModuleApiEndpoint @moduleApiEndpointParams
