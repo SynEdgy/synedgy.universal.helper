@@ -5,6 +5,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2025-12-05
+
 ### Fixed
 
 - Fixed issue with URL generation in `Get-ModuleApiEndpoint` function to correctly
