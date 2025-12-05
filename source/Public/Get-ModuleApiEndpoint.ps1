@@ -63,11 +63,27 @@ function Get-ModuleApiEndpoint
 
         foreach ($ApiEndpoint in $ApiEndpoints)
         {
-            $urlPath = $ApiEndpoint.Path
-            $version = $ApiEndpoint.version
-            $Name = $ApiEndpoint.Name
-            $documentation = $ApiEndpoint.Documentation
-            $apiPrefix = $ApiEndpoint.ApiPrefix
+            $urlPath        = $ApiEndpoint.Path
+            $version        = $ApiEndpoint.version
+            $Name           = $ApiEndpoint.Name
+
+            if ($PSBoundParameters.ContainsKey('ApiPrefix'))
+            {
+                Write-Debug -Message ('Using ApiPrefix from Parameter (override) {0}' -f $ApiPrefix)
+            }
+            elseif (-not [string]::IsNullOrEmpty($ApiEndpoints.ApiPrefix))
+            {
+                $ApiPrefix = $ApiEndpoint.ApiPrefix
+            }
+
+            if ($PSBoundParameters.ContainsKey('Documentation'))
+            {
+                Write-Debug -Message ('Using documentation from Parameter (override) {0}' -f $Documentation)
+            }
+            elseif (-not [string]::IsNullOrEmpty($ApiEndpoints.Documentation))
+            {
+                $Documentation = $ApiEndpoint.Documentation
+            }
 
             if ([string]::IsNullOrEmpty($urlPath))
             {
