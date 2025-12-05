@@ -52,7 +52,7 @@ function Import-PSUEndpoint
 
     if ($PSBoundParameters.ContainsKey('Authentication'))
     {
-        $moduleApiEndpointParams['Authentication'] = $Authentication
+        $moduleApiEndpointParams['Authentication'] = $Authentication.IsPresent
     }
 
     if ($PSBoundParameters.ContainsKey('LogLevel'))
@@ -66,14 +66,19 @@ function Import-PSUEndpoint
     }
 
     $endpoints = Get-ModuleApiEndpoint @moduleApiEndpointParams
-    $endpoints | ForEach-Object {
+    $endpoints | ForEach-Object -Process {
         # Create a new endpoint for each function that has the APIEndpoint attribute
         $psuEndpointParams = @{} + $_
-        $psuCommand = Get-Command -Name 'New-PSUEndpoint'
+        $psuCommand = Get-Command -Name 'New-PSUEndpoint' -Module Universal
         $psuEndpointParams.Keys.Where{
             $_ -notin $psuCommand.Parameters.Keys
         } | ForEach-Object {
-            $psuEndpointParams.Remove($_)
+            $null = $psuEndpointParams.Remove($_)
+        }
+
+        if ($false -eq $psuEndpointParams['Authentication'] -and $psuEndpointParams.ContainsKey('Role'))
+        {
+            $null = $psuEndpointParams.Remove('Role')
         }
 
         $moduleEndpointScriptblockParameters = @{
