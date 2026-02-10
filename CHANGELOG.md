@@ -5,6 +5,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed Warning messages to Debug messages when overriding type accelerators.
+  This is to reduce noise in the output and only show warnings for actual issues.
+
 ### Fixed
 
 - Fixed how the ApiVersion is set and can be overridden.
