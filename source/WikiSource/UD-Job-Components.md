@@ -1,14 +1,10 @@
-# synedgy.universal.helper
-
-A bunch of PowerShell Universal (PSU) helpers to make your experience more productive.
-
-## UDComponents
+# UD Job Components
 
 Reusable Universal Dashboard components for rendering PSU job information, shared across
 consuming projects (e.g. ComsolCentral, PSUConfig):
 
-- `New-UDPsuJobHeader` - renders a summary header card for a PSU job (script path, status
-  badge, created/started/completed timestamps, duration, copy-to-clipboard job id chip).
+- `New-UDPsuJobHeader` - renders a summary header card for a PSU job (script path, status badge,
+  created/started/completed timestamps, duration, copy-to-clipboard job id chip).
 - `New-UDPsuJobTerminalView` - renders a terminal-style view of a PSU job's output, with an
   optional structured events table tab, auto-refresh while the job is active, line-number and
   timestamp toggles, and ANSI-to-HTML color rendering.
@@ -16,10 +12,9 @@ consuming projects (e.g. ComsolCentral, PSUConfig):
 Both components rely on private helpers (`ConvertFrom-PsuJobOutputEntry`, `Convert-AnsiToHtml`,
 `Convert-PlainTextToHtml`, `Get-UDPsuJobThemePalette`, `Get-UDPsuJobThemeStyleBlock`,
 `ConvertTo-UDPsuThemedIconMarkup`) and branding assets under `images/synedgy_pwsh/` that ship with
-this module -- consuming projects do not need to duplicate them. See
-`images/synedgy_pwsh/COPYRIGHT.md` for the copyright/usage notice covering that artwork.
+this module -- consuming projects do not need to duplicate them.
 
-### Usage
+## Usage
 
 ```powershell
 $job = Get-PSUJob -Id $jobId
@@ -34,7 +29,7 @@ private module functions are not otherwise accessible from a `New-UDDynamic` syn
 runspace. Consuming projects do not need to do anything extra for this to work as long as
 `synedgy.universal.helper` is installed/available on the PSU server.
 
-### Theming: light/dark, automatic or forced, with custom CSS overrides
+## Theming: light/dark, automatic or forced, with custom CSS overrides
 
 Both components accept a `-Theme` parameter:
 
@@ -65,7 +60,14 @@ Icon assets always use the plain monochrome variants: `pwsh_custom_black.svg` fo
 `.psu-theme-light-only` / `.psu-theme-dark-only` spans) and shown/hidden via the same CSS rules
 that drive the color variables, so the icon also switches live with no JavaScript required.
 
-### Default line numbers / timestamps visibility
+| Light theme | Dark theme |
+|---|---|
+| ![Job header and terminal view in light theme](images/ud-job-components-light.png) | ![Job header and terminal view in dark theme](images/ud-job-components-dark.png) |
+
+*Screenshots of `New-UDPsuJobHeader` and `New-UDPsuJobTerminalView` rendering a PSU job, following
+PSU's own theme switch (top-right toggle) live.*
+
+## Default line numbers / timestamps visibility
 
 `New-UDPsuJobTerminalView` accepts `-HideLineNumbers` and `-HideTimestamps` switches to control
 whether line numbers and timestamps are shown by default for a first-time viewer (shown by default
@@ -76,64 +78,6 @@ browser's `localStorage` and takes precedence over these defaults on later visit
 # Hide both by default for first-time viewers; still toggleable per-viewer afterwards
 New-UDPsuJobTerminalView -JobId $job.Id -HideLineNumbers -HideTimestamps
 ```
-
-### AiTool: declarative AI tool registration (like APIEndpoint, for New-PSUAiTool)
-
-`synedgy.universal.helper` also ships an `AiTool` class attribute, an `[System.Attribute]` you can
-put on any public function in a consuming module to expose it as a PowerShell Universal AI tool,
-mirroring the existing `APIEndpoint` attribute pattern used for REST endpoints:
-
-```powershell
-function Find-UserByCity
-{
-    [CmdletBinding()]
-    [AiTool(
-        Description   = 'Finds users by city'
-        Authenticated = $false
-        Role          = ('admin','user')
-    )]
-    param
-    (
-        [Parameter(Mandatory = $true)]
-        [System.String]
-        $City
-    )
-
-    # ...
-}
-```
-
-Then, in the consuming module's `.universal/*.ps1` resource file, a single call discovers and
-registers every `[AiTool()]`-decorated function in the module:
-
-```powershell
-Import-PSUAiTool -Module PSUConfig -Environment 'PSUConfig'
-```
-
-`Import-PSUAiTool` uses `Get-ModuleAiTool` to scan the module's exported functions for the
-`AiTool` attribute, then for each one:
-
-1. Registers (or re-registers -- both cmdlets are idempotent, safe to call on every PSU config
-   reload) a backing PSU Script resource via `New-PSUScript -Module <Module> -Command <Function>`.
-2. Registers the AI tool itself via `New-PSUAiTool -ScriptFullPath '<Module>\<Function>' ...`.
-
-This differs from the `APIEndpoint`/`Import-PSUEndpoint` pattern: `New-PSUEndpoint` accepts an
-inline `-Endpoint {scriptblock}`, so `Import-PSUEndpoint` can synthesize a wrapper scriptblock on
-the fly with no separate script registration needed. `New-PSUAiTool`, however, only accepts
-`-ScriptFullPath` referencing an existing PSU Script resource (the same `<Module>\<Command>`
-naming convention used by `New-PSUScript`/`Get-PSUScript`), so `Import-PSUAiTool` always
-(re-)declares that backing script alongside the AI tool registration.
-
-`AiTool` attribute properties, all optional:
-
-| Property | Default | Description |
-|---|---|---|
-| `Name` | function name | Name of the registered AI tool. |
-| `Description` | comment-based help synopsis | Description shown to AI agents. |
-| `Authenticated` | `$false` | Whether the tool requires an authenticated user. |
-| `Role` | (none) | Role(s) required to access/invoke the tool. |
-| `Mcp` | `$true` | Whether the tool is exposed through Model Context Protocol (MCP). |
-| `Environment` | (none) | PSU environment the backing script should run in. |
 
 ## Authorization: prefer an app token over -Integrated
 
@@ -149,22 +93,3 @@ grants job-read access at all (`automation/read`) grants it for every job in the
 just a specific script's jobs (a known PSU platform limitation, already submitted to Devolutions
 and confirmed as being fixed). But using a token still keeps access inside PSU's authorization
 model rather than bypassing it altogether, and will become properly scoped once that fix ships.
-
-## Known PowerShell Universal platform behaviors
-
-These are general PSU platform quirks worth knowing when building on top of this module or PSU
-apps that consume it:
-
-- `Get-PSUScript -Name` requires the full `<ModuleName>\<Command>` path (e.g.
-  `'PSUConfig\Get-myUser'`), not just the command name.
-- `Invoke-PSUScript -Integrated -Wait` reliably returns a job object with an empty `Id` on this
-  PSU version (100% reproducible across 130 test invocations). Omit `-Wait` when the job `Id` is
-  needed immediately (e.g. to redirect to a job detail page) -- without `-Wait`, `Id` is reliably
-  populated.
-- Never directly modify files under PSU's live Repository folder
-  (`C:\ProgramData\UniversalAutomation\Repository` on Windows); only a build-driven deploy task
-  should change files there.
-- When deploying a Sampler-built module to PSU, always run the `pack` task explicitly before
-  `deploy` -- Invoke-Build's incremental build detection can silently skip `pack`, leaving stale or
-  missing `.nupkg` files and causing PSU deployment to fail without a clear error in the build
-  output.
