@@ -67,6 +67,6 @@ scriptblock directly.
 
 `New-PSUEndpoint` accepts an inline `-Endpoint {scriptblock}` parameter, so `Import-PSUEndpoint`
 can synthesize a wrapper scriptblock dynamically and register the endpoint in one step. This is
-different from the [AI Tool Attribute](AI-Tool-Attribute.md) pattern, where `New-PSUAiTool` only
+different from the [AI Tool Attribute](AI-Tool-Attribute) pattern, where `New-PSUAiTool` only
 accepts `-ScriptFullPath` referencing an already-registered PSU Script resource, so
 `Import-PSUAiTool` must also declare that backing script.

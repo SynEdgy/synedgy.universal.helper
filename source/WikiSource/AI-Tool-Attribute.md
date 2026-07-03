@@ -2,7 +2,7 @@
 
 `synedgy.universal.helper` also ships an `AiTool` class attribute, a `[System.Attribute]` you can
 put on any public function in a consuming module to expose it as a PowerShell Universal AI tool,
-mirroring the [API Endpoint Attribute](API-Endpoint-Attribute.md) pattern used for REST endpoints:
+mirroring the [API Endpoint Attribute](API-Endpoint-Attribute) pattern used for REST endpoints:
 
 ```powershell
 function Find-UserByCity

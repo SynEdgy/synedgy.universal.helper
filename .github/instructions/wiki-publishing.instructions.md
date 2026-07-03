@@ -23,6 +23,7 @@ applyTo: 'source/WikiSource/**/*.md,build.yaml,.pipelines/*.yml,.pipelines/*.yam
 - Put landing-page content in `source/WikiSource/Home.md` when a custom wiki home page is needed.
 - If `Home.md` contains module version placeholders, rely on the Sampler/DscResource.DocGenerator task to update them during the build; do not hardcode release-specific versions into committed wiki pages.
 - Keep custom wiki content in Markdown that is compatible with GitHub wiki rendering.
+- Internal wiki links must omit the `.md` extension (e.g. `[UD Job Components](UD-Job-Components)`, not `(UD-Job-Components.md)`). GitHub wiki pages are served at extension-less URLs; a link with `.md` navigates to the raw file view instead of the rendered page. Match the extension-less convention already used by the auto-generated `_Sidebar.md`.
 
 ## Validation
 
