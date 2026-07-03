@@ -34,6 +34,13 @@ apps that consume it.
 - `New-PSUScript`/`New-PSUAiTool`/`New-PSUEndpoint` are idempotent when called repeatedly with the
   same identifying parameters (module/command, name, etc.), which is why `Import-PSUEndpoint` and
   `Import-PSUAiTool` can be safely re-run on every PSU config reload.
+- PSU's module install is keyed by version string. Redeploying a module with an unchanged version
+  (e.g. local uncommitted fixes, since GitVersion computes the version from commit history, not
+  working tree state) silently skips extracting new content -- `pack`/`deploy` report success with
+  no errors, but the stale code keeps running. During local iteration on uncommitted changes,
+  force a fresh install by setting a unique `$env:ModuleVersion` (e.g. append a timestamp/dev
+  suffix) before `pack`, or verify by checking the deployed file's timestamp/content directly under
+  `C:\ProgramData\UniversalAutomation\Repository\Modules\<Module>\<Version>\`.
 
 ## Theming
 

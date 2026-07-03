@@ -87,14 +87,21 @@ function ConvertTo-UDPsuThemedIconMarkup
             $lightSvg = & $renderSvg $blackSvgPath ($IdPrefix + '-lt') $ExtraStyle
             $darkSvg  = & $renderSvg $whiteSvgPath ($IdPrefix + '-dk') $ExtraStyle
 
+            # NOTE: default show/hide state is intentionally NOT set via an inline `style`
+            # attribute here. Inline styles always win over stylesheet rules regardless of
+            # selector specificity, so Get-UDPsuJobThemeStyleBlock's `html[data-theme="dark"]`
+            # override rules would never be able to flip visibility if it were set inline.
+            # The default (light-ambient) display state is instead defined as a plain CSS rule
+            # in Get-UDPsuJobThemeStyleBlock, alongside the dark-mode override, so both states
+            # live in the stylesheet and the cascade works as expected.
             $markup = ''
             if ($lightSvg)
             {
-                $markup += '<span class="psu-theme-light-only" style="display:contents;">' + $lightSvg + '</span>'
+                $markup += '<span class="psu-theme-light-only">' + $lightSvg + '</span>'
             }
             if ($darkSvg)
             {
-                $markup += '<span class="psu-theme-dark-only" style="display:none;">' + $darkSvg + '</span>'
+                $markup += '<span class="psu-theme-dark-only">' + $darkSvg + '</span>'
             }
             return $markup
         }

@@ -63,6 +63,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed the themed icon (top-right/title-bar `>_` icon) in `New-UDPsuJobHeader` and
+  `New-UDPsuJobTerminalView` always rendering the light (black) variant regardless
+  of PSU's active theme when `-Theme Auto` (the default). `ConvertTo-UDPsuThemedIconMarkup`
+  was setting the light/dark icon spans' default visibility via an inline `style`
+  attribute, which always takes precedence over stylesheet rules regardless of CSS
+  specificity -- so `Get-UDPsuJobThemeStyleBlock`'s `html[data-theme="dark"]` override
+  rule could never actually flip visibility. The default and dark-mode-override
+  display rules are now both defined in the `<style>` block instead, so the icon
+  correctly switches color when the PSU theme switch is toggled live.
 - Fixed how the ApiVersion is set and can be overridden.
 - Fixed how the Documentation is set and can be overridden.
 
