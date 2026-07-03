@@ -67,6 +67,8 @@ function Get-UDPsuJobThemeStyleBlock
         {
             (
                 ('#{0} {{ {1} }}' -f $ElementId, (& $toVarsCss $palette.Light)) +
+                ('#{0} .psu-theme-light-only {{ display:contents; }}' -f $ElementId) +
+                ('#{0} .psu-theme-dark-only {{ display:none; }}' -f $ElementId) +
                 ('html[data-theme="dark"] #{0} {{ {1} }}' -f $ElementId, (& $toVarsCss $palette.Dark)) +
                 ('html[data-theme="dark"] #{0} .psu-theme-light-only {{ display:none; }}' -f $ElementId) +
                 ('html[data-theme="dark"] #{0} .psu-theme-dark-only {{ display:contents; }}' -f $ElementId)
