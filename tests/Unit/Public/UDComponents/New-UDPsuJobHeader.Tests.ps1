@@ -37,4 +37,23 @@ Describe 'New-UDPsuJobHeader' {
         $command.Parameters.Keys | Should -Contain 'Job'
         $command.Parameters['Job'].Attributes.Mandatory | Should -Contain $true
     }
+
+    It 'Should expose ElementId, Theme, and CustomCss parameters' {
+        $command = Get-Command -Name New-UDPsuJobHeader -Module $script:moduleName -ErrorAction Stop
+
+        $command.Parameters.Keys | Should -Contain 'ElementId'
+        $command.Parameters.Keys | Should -Contain 'Theme'
+        $command.Parameters.Keys | Should -Contain 'CustomCss'
+    }
+
+    It 'Should default Theme to Auto' {
+        InModuleScope -ScriptBlock {
+            $fn   = Get-Command -Name New-UDPsuJobHeader
+            $meta = $fn.ScriptBlock.Ast.Body.ParamBlock.Parameters |
+                Where-Object { $_.Name.VariablePath.UserPath -eq 'Theme' }
+
+            $meta | Should -Not -BeNullOrEmpty
+            $meta.DefaultValue.Value | Should -Be 'Auto'
+        }
+    }
 }

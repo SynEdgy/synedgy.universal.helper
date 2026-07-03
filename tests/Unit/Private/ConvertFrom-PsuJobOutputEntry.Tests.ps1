@@ -31,7 +31,7 @@ Describe 'ConvertFrom-PsuJobOutputEntry' {
             $result = $entry | ConvertFrom-PsuJobOutputEntry
 
             $result.Stream | Should -Be 'Information'
-            $result.StreamColor | Should -Be '#42a5f5'
+            $result.StreamColor | Should -Be 'var(--psu-term-stream-information)'
         }
     }
 
@@ -41,7 +41,7 @@ Describe 'ConvertFrom-PsuJobOutputEntry' {
             $result = $entry | ConvertFrom-PsuJobOutputEntry
 
             $result.Stream | Should -Be 'Error'
-            $result.StreamColor | Should -Be '#ef5350'
+            $result.StreamColor | Should -Be 'var(--psu-term-stream-error)'
         }
     }
 
@@ -81,7 +81,7 @@ Describe 'ConvertFrom-PsuJobOutputEntry' {
             $result = $entry | ConvertFrom-PsuJobOutputEntry
 
             $result.Stream | Should -Be 'Output'
-            $result.StreamColor | Should -Be '#e0e0e0'
+            $result.StreamColor | Should -Be 'var(--psu-term-stream-default)'
         }
     }
 }

@@ -24,6 +24,10 @@ AfterAll {
     Remove-Module -Name $script:moduleName
 }
 
+BeforeDiscovery {
+    $script:themeTestCases = @('Auto', 'Light', 'Dark')
+}
+
 Describe 'New-UDPsuJobTerminalView' {
     It 'Should be available as an exported command' {
         $command = Get-Command -Name New-UDPsuJobTerminalView -Module $script:moduleName -ErrorAction Stop
@@ -43,6 +47,35 @@ Describe 'New-UDPsuJobTerminalView' {
         $command.Parameters.Keys | Should -Contain 'IncludeStructuredTable'
         $command.Parameters.Keys | Should -Contain 'JobOutputSnapshot'
         $command.Parameters.Keys | Should -Contain 'ElementId'
+        $command.Parameters.Keys | Should -Contain 'Theme'
+        $command.Parameters.Keys | Should -Contain 'CustomCss'
+        $command.Parameters.Keys | Should -Contain 'HideLineNumbers'
+        $command.Parameters.Keys | Should -Contain 'HideTimestamps'
+    }
+
+    It 'Should type HideLineNumbers and HideTimestamps as switch parameters' {
+        $command = Get-Command -Name New-UDPsuJobTerminalView -Module $script:moduleName -ErrorAction Stop
+
+        $command.Parameters['HideLineNumbers'].ParameterType | Should -Be ([System.Management.Automation.SwitchParameter])
+        $command.Parameters['HideTimestamps'].ParameterType | Should -Be ([System.Management.Automation.SwitchParameter])
+    }
+
+    It 'Should default Theme to Auto' {
+        InModuleScope -ScriptBlock {
+            $fn   = Get-Command -Name New-UDPsuJobTerminalView
+            $meta = $fn.ScriptBlock.Ast.Body.ParamBlock.Parameters |
+                Where-Object { $_.Name.VariablePath.UserPath -eq 'Theme' }
+
+            $meta | Should -Not -BeNullOrEmpty
+            $meta.DefaultValue.Value | Should -Be 'Auto'
+        }
+    }
+
+    It 'Should restrict Theme to Auto, Light, or Dark: <_>' -ForEach $script:themeTestCases {
+        $command = Get-Command -Name New-UDPsuJobTerminalView -Module $script:moduleName -ErrorAction Stop
+        $validValues = $command.Parameters['Theme'].Attributes.ValidValues
+
+        $validValues | Should -Contain $_
     }
 
     It 'Should have AutoRefreshInterval default of 5' {

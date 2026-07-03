@@ -45,8 +45,39 @@ function New-UDPsuJobTerminalView
         Interval in seconds for auto-refreshing the terminal output when the job is active
         (not in a terminal state). Defaults to 5. Set to 0 to disable auto-refresh entirely.
 
+        .PARAMETER Theme
+        'Auto' (default) follows PSU's own theme switch live (PSU sets a `data-theme`
+        attribute on <html> that updates instantly when the user toggles it, with no page
+        reload), so this component's colors and icon variant switch automatically. 'Light'
+        or 'Dark' force that theme for this component instance regardless of the ambient
+        PSU theme.
+
+        .PARAMETER CustomCss
+        Optional raw CSS appended after the theme rules, so it naturally overrides them.
+        For example, override a single color variable:
+        '#psu-job-terminal-123 { --psu-term-accent: #ff00ff; }'.
+
+        .PARAMETER HideLineNumbers
+        Hides line numbers by default for a first-time viewer (shown by default when
+        omitted). Once a viewer manually toggles line numbers, their choice is remembered
+        in the browser's localStorage and takes precedence over this default on later
+        visits.
+
+        .PARAMETER HideTimestamps
+        Hides timestamps by default for a first-time viewer (shown by default when
+        omitted). Once a viewer manually toggles timestamps, their choice is remembered in
+        the browser's localStorage and takes precedence over this default on later visits.
+
         .EXAMPLE
         New-UDPsuJobTerminalView -JobId 10494 -AppToken $secret:automation_bot_token -IncludeStructuredTable -AutoRefreshInterval 10
+
+        .EXAMPLE
+        # Force light theme regardless of PSU's ambient theme
+        New-UDPsuJobTerminalView -JobId 10494 -Theme Light
+
+        .EXAMPLE
+        # Hide line numbers and timestamps by default for first-time viewers
+        New-UDPsuJobTerminalView -JobId 10494 -HideLineNumbers -HideTimestamps
     #>
     [CmdletBinding(
         SupportsShouldProcess = $true,
@@ -91,7 +122,24 @@ function New-UDPsuJobTerminalView
         [Parameter()]
         [ValidateRange(0, 300)]
         [Int32]
-        $AutoRefreshInterval = 5
+        $AutoRefreshInterval = 5,
+
+        [Parameter()]
+        [ValidateSet('Auto', 'Light', 'Dark')]
+        [System.String]
+        $Theme = 'Auto',
+
+        [Parameter()]
+        [System.String]
+        $CustomCss = '',
+
+        [Parameter()]
+        [System.Management.Automation.SwitchParameter]
+        $HideLineNumbers,
+
+        [Parameter()]
+        [System.Management.Automation.SwitchParameter]
+        $HideTimestamps
     )
 
     $resolvedAppToken = $AppToken
@@ -151,20 +199,20 @@ function New-UDPsuJobTerminalView
     $statusStreamSpans = @(
         $streamCounts.ForEach{
             $c = switch ($_.Name) {
-                'Error' { '#ef5350' }; 'Warning' { '#ffa726' }; 'Information' { '#42a5f5' }
-                'Verbose' { '#ffee58' }; 'Debug' { '#ab47bc' }; Default { '#e0e0e0' }
+                'Error' { 'var(--psu-term-stream-error)' }; 'Warning' { 'var(--psu-term-stream-warning)' }; 'Information' { 'var(--psu-term-stream-information)' }
+                'Verbose' { 'var(--psu-term-stream-verbose)' }; 'Debug' { 'var(--psu-term-stream-debug)' }; Default { 'var(--psu-term-stream-default)' }
             }
             "<span style='color:{0};'>{1}:&thinsp;{2}</span>" -f $c, $_.Name, $_.Count
         }
     )
     $statusInner = if (@($statusStreamSpans).Count -gt 0)
     {
-        ($statusStreamSpans -join "<span style='color:#37474f;padding:0 6px;'>|</span>") +
-        ("<span style='color:#37474f;padding:0 6px;'>|</span><span style='color:#546e7a;'>Events:&nbsp;{0}</span>" -f @($initialDisplayRows).Count)
+        ($statusStreamSpans -join "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span>") +
+        ("<span style='color:var(--psu-term-border);padding:0 6px;'>|</span><span style='color:var(--psu-term-muted-fg);'>Events:&nbsp;{0}</span>" -f @($initialDisplayRows).Count)
     }
     else
     {
-        "<span style='color:#546e7a;'>Events:&nbsp;0</span>"
+        "<span style='color:var(--psu-term-muted-fg);'>Events:&nbsp;0</span>"
     }
 
     # --- Inline SVG assets from module images ---
@@ -173,31 +221,12 @@ function New-UDPsuJobTerminalView
     $moduleBase       = $MyInvocation.MyCommand.Module.ModuleBase
     if ($moduleBase)
     {
-        $makeSvg = {
-            param([string]$svgPath, [string]$prefix, [string]$extraStyle)
-            if (-not [System.IO.File]::Exists($svgPath)) { return '' }
-            $c = [System.IO.File]::ReadAllText($svgPath)
-            $c = $c -replace '<\?xml[^>]*\?>', ''
-            # Uniquify gradient/element IDs and their references
-            $c = $c -replace 'id="([^"]+)"',         "id=`"$prefix-`$1`""
-            $c = $c -replace 'url\(#([^)]+)\)',       "url(#$prefix-`$1)"
-            $c = $c -replace 'xlink:href="#([^"]+)"', "xlink:href=`"#$prefix-`$1`""
-            # Uniquify CSS class names so two inlined SVGs don't share .cls-N rules
-            $c = $c -replace '\.cls-(\d+)',           ".$prefix-cls-`$1"
-            $c = $c -replace 'class="cls-(\d+)"',     "class=`"$prefix-cls-`$1`""
-            $c = $c -replace '<svg ',                 "<svg style=`"$extraStyle`" "
-            return $c.Trim()
-        }
-        $imagesPath = Join-Path -Path $moduleBase -ChildPath 'images'
-        $imagesPath = Join-Path -Path $imagesPath -ChildPath 'synedgy_pwsh'
-        $iconSvgPath = Join-Path -Path $imagesPath -ChildPath 'pwsh_custom_white.svg'
-        $wmSvgPath   = Join-Path -Path $imagesPath -ChildPath 'pwsh_custom_blueandwhite.svg'
-        $iconSvg = & $makeSvg $iconSvgPath ($ElementId + '-icon') 'height:26px;width:auto;display:block;'
-        $wmSvg   = & $makeSvg $wmSvgPath   ($ElementId + '-wm')   'height:100%;width:auto;'
-        if ($iconSvg) { $svgIconHtml = '<span style="padding:4px 8px 4px 12px;display:flex;align-items:center;">' + $iconSvg + '</span><span style="padding:0 14px 0 0;color:#e8e8e8;font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;border-right:1px solid #37474f;">TERMINAL</span>' }
+        $iconSvg = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ($ElementId + '-icon') -ExtraStyle 'height:26px;width:auto;display:block;' -Theme $Theme
+        $wmSvg   = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ($ElementId + '-wm')   -ExtraStyle 'height:100%;width:auto;'         -Theme $Theme
+        if ($iconSvg) { $svgIconHtml = '<span style="padding:4px 8px 4px 12px;display:flex;align-items:center;">' + $iconSvg + '</span><span style="padding:0 14px 0 0;color:var(--psu-term-fg);font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">TERMINAL</span>' }
         if ($wmSvg)   { $svgWatermarkHtml = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:65%;pointer-events:none;opacity:0.05;z-index:0;">' + $wmSvg + '</div>' }
     }
-    $iconSpan = if ($svgIconHtml) { $svgIconHtml } else { '<span style="padding:0 14px;color:#42a5f5;font-family:Consolas,Monaco,monospace;font-size:14px;font-weight:700;display:flex;align-items:center;border-right:1px solid #37474f;">&gt;_</span>' }
+    $iconSpan = if ($svgIconHtml) { $svgIconHtml } else { '<span style="padding:0 14px;color:var(--psu-term-accent);font-family:Consolas,Monaco,monospace;font-size:14px;font-weight:700;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">&gt;_</span>' }
 
     # --- Title bar ---
     if ($resolvedIncludeStructuredTable)
@@ -205,26 +234,26 @@ function New-UDPsuJobTerminalView
         $onClickTerminal = (
             "document.getElementById('" + $ElementId + "-panel-terminal').style.display='';" +
             "document.getElementById('" + $ElementId + "-panel-structured').style.display='none';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.background='#1e2a2f';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.color='#e0e0e0';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.borderBottom='2px solid #42a5f5';" +
+            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.background='var(--psu-term-tab-active-bg)';" +
+            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.color='var(--psu-term-fg)';" +
+            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.borderBottom='2px solid var(--psu-term-accent)';" +
             "document.getElementById('" + $ElementId + "-cbtn-structured').style.background='transparent';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.color='#90a4ae';" +
+            "document.getElementById('" + $ElementId + "-cbtn-structured').style.color='var(--psu-term-muted-fg)';" +
             "document.getElementById('" + $ElementId + "-cbtn-structured').style.borderBottom='2px solid transparent';"
         )
         $onClickStructured = (
             "document.getElementById('" + $ElementId + "-panel-structured').style.display='';" +
             "document.getElementById('" + $ElementId + "-panel-terminal').style.display='none';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.background='#1e2a2f';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.color='#e0e0e0';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.borderBottom='2px solid #42a5f5';" +
+            "document.getElementById('" + $ElementId + "-cbtn-structured').style.background='var(--psu-term-tab-active-bg)';" +
+            "document.getElementById('" + $ElementId + "-cbtn-structured').style.color='var(--psu-term-fg)';" +
+            "document.getElementById('" + $ElementId + "-cbtn-structured').style.borderBottom='2px solid var(--psu-term-accent)';" +
             "document.getElementById('" + $ElementId + "-cbtn-terminal').style.background='transparent';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.color='#90a4ae';" +
+            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.color='var(--psu-term-muted-fg)';" +
             "document.getElementById('" + $ElementId + "-cbtn-terminal').style.borderBottom='2px solid transparent';"
         )
     # JS tooltip helper - appends to body to bypass overflow:hidden on parent containers
     $tipShow = "var _t=document.createElement('div');_t.id='psu-tip';_t.textContent=this.dataset.tip;" +
-               "_t.style.cssText='position:fixed;background:#37474f;color:#e0e0e0;font-family:Consolas,Monaco,monospace;font-size:11px;padding:4px 8px;border-radius:4px;pointer-events:none;z-index:99999;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);';" +
+               "_t.style.cssText='position:fixed;background:var(--psu-term-tooltip-bg);color:var(--psu-term-tooltip-fg);font-family:Consolas,Monaco,monospace;font-size:11px;padding:4px 8px;border-radius:4px;pointer-events:none;z-index:99999;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);';" +
                "document.body.appendChild(_t);" +
                "var r=this.getBoundingClientRect();" +
                "_t.style.left=(r.left+r.width/2-_t.offsetWidth/2)+'px';" +
@@ -244,9 +273,9 @@ function New-UDPsuJobTerminalView
         '<button id="' + $ElementId + '-ln-toggle" onclick="' + $lnToggleJs + '" data-tip="Toggle line numbers" ' +
         'onmouseenter="' + $tipShow + '" onmouseleave="' + $tipHide + '" ' +
         'style="padding:4px 10px;background:transparent;border:none;cursor:pointer;' +
-        'color:#546e7a;font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:700;' +
+        'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:700;' +
         'display:flex;align-items:center;outline:none;line-height:1;" ' +
-        'onmouseover="this.style.color=''#90a4ae''" onmouseout="this.style.color=''#546e7a''">#</button>'
+        'onmouseover="this.style.color=''var(--psu-term-fg)''" onmouseout="this.style.color=''var(--psu-term-muted-fg)''">#</button>'
     )
     $tsToggleJs = (
         "var p1=document.getElementById('" + $ElementId + "-panel-terminal');" +
@@ -261,22 +290,29 @@ function New-UDPsuJobTerminalView
         '<button id="' + $ElementId + '-ts-toggle" onclick="' + $tsToggleJs + '" data-tip="Toggle timestamps" ' +
         'onmouseenter="' + $tipShow + '" onmouseleave="' + $tipHide + '" ' +
         'style="padding:4px 8px;background:transparent;border:none;cursor:pointer;' +
-        'color:#546e7a;font-family:Consolas,Monaco,monospace;font-size:13px;' +
+        'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;' +
         'display:flex;align-items:center;outline:none;line-height:1;" ' +
-        'onmouseover="this.style.color=''#90a4ae''" onmouseout="this.style.color=''#546e7a''">&#128336;</button>'
+        'onmouseover="this.style.color=''var(--psu-term-fg)''" onmouseout="this.style.color=''var(--psu-term-muted-fg)''">&#128336;</button>'
     )
     $toggleBtns = '<div style="margin-left:auto;display:flex;align-items:center;">' + $lnToggleBtn + $tsToggleBtn + '</div>'
-    # Restore toggle states from localStorage on initial render
+    # Restore toggle states on initial render: an explicit prior user choice in localStorage
+    # always wins; otherwise fall back to the -HideLineNumbers/-HideTimestamps defaults.
+    $showLnDefaultJs = if ($HideLineNumbers.IsPresent) { 'false' } else { 'true' }
+    $showTsDefaultJs = if ($HideTimestamps.IsPresent) { 'false' } else { 'true' }
     $lnRestoreJs = (
         "(function(){" +
         "try{" +
         "var p1=document.getElementById('" + $ElementId + "-panel-terminal');" +
         "var p2=document.getElementById('" + $ElementId + "-panel-structured');" +
-        "if(localStorage.getItem('" + $ElementId + "-ln')==='0'){" +
+        "var lnStored=localStorage.getItem('" + $ElementId + "-ln');" +
+        "var lnVisible=(lnStored===null)?" + $showLnDefaultJs + ":(lnStored!=='0');" +
+        "if(!lnVisible){" +
         "if(p1)p1.classList.add('" + $ElementId + "-ln-hidden');" +
         "if(p2)p2.classList.add('" + $ElementId + "-ln-hidden');" +
         "var b=document.getElementById('" + $ElementId + "-ln-toggle');if(b)b.style.opacity='0.35';}" +
-        "if(localStorage.getItem('" + $ElementId + "-ts')==='0'){" +
+        "var tsStored=localStorage.getItem('" + $ElementId + "-ts');" +
+        "var tsVisible=(tsStored===null)?" + $showTsDefaultJs + ":(tsStored!=='0');" +
+        "if(!tsVisible){" +
         "if(p1)p1.classList.add('" + $ElementId + "-ts-hidden');" +
         "if(p2)p2.classList.add('" + $ElementId + "-ts-hidden');" +
         "var b=document.getElementById('" + $ElementId + "-ts-toggle');if(b)b.style.opacity='0.35';}" +
@@ -286,8 +322,8 @@ function New-UDPsuJobTerminalView
         $titleBarHtml = (
             '<div style="display:flex;align-items:stretch;height:100%;width:100%;">' +
             $iconSpan +
-            '<button role="tab" id="' + $ElementId + '-cbtn-terminal" onclick="' + $onClickTerminal + '" style="padding:8px 16px;background:#1e2a2f;color:#e0e0e0;border:none;border-right:1px solid #2d3d45;cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid #42a5f5;outline:none;">Output</button>' +
-            '<button role="tab" id="' + $ElementId + '-cbtn-structured" onclick="' + $onClickStructured + '" style="padding:8px 16px;background:transparent;color:#90a4ae;border:none;border-right:1px solid #2d3d45;cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid transparent;outline:none;">Structured Events</button>' +
+            '<button role="tab" id="' + $ElementId + '-cbtn-terminal" onclick="' + $onClickTerminal + '" style="padding:8px 16px;background:var(--psu-term-tab-active-bg);color:var(--psu-term-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid var(--psu-term-accent);outline:none;">Output</button>' +
+            '<button role="tab" id="' + $ElementId + '-cbtn-structured" onclick="' + $onClickStructured + '" style="padding:8px 16px;background:transparent;color:var(--psu-term-muted-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid transparent;outline:none;">Structured Events</button>' +
             $toggleBtns +
             '</div>'
         )
@@ -297,7 +333,7 @@ function New-UDPsuJobTerminalView
         $titleBarHtml = (
             '<div style="display:flex;align-items:center;height:100%;width:100%;">' +
             $iconSpan +
-            '<span style="color:#90a4ae;font-family:Consolas,Monaco,monospace;font-size:12px;padding:0 12px;display:flex;align-items:center;">Output</span>' +
+            '<span style="color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:12px;padding:0 12px;display:flex;align-items:center;">Output</span>' +
             $toggleBtns +
             '</div>'
         )
@@ -353,7 +389,7 @@ function New-UDPsuJobTerminalView
                 if ($max -gt 0) { $rows = @($rows | Select-Object -Last $max) }
                 $lnClass = 'ln-' + $eid
                 $tsClass = 'ts-' + $eid
-                $lnStyle = 'color:#546e7a;min-width:3ch;text-align:right;margin-right:12px;user-select:none;flex-shrink:0;font-variant-numeric:tabular-nums;'
+                $lnStyle = 'color:var(--psu-term-muted-fg);min-width:3ch;text-align:right;margin-right:12px;user-select:none;flex-shrink:0;font-variant-numeric:tabular-nums;'
 
                 if ($view -eq 'structured')
                 {
@@ -362,9 +398,9 @@ function New-UDPsuJobTerminalView
                         $i++
                         $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
                         $msgHtml = $_.Message | Convert-PlainTextToHtml
-                        "<tr><td class='$lnClass' style='padding:4px 6px 4px 10px;color:#546e7a;text-align:right;user-select:none;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums;'>$i</td><td class='$tsClass' style='padding:4px 10px;color:#90a4ae;white-space:nowrap;vertical-align:top;'>{0}</td><td style='padding:4px 10px;color:{1};font-weight:600;white-space:nowrap;vertical-align:top;'>{2}</td><td style='padding:4px 10px;color:#e0e0e0;white-space:pre-wrap;vertical-align:top;'>{3}</td></tr>" -f [System.Net.WebUtility]::HtmlEncode($ts), $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($_.Stream), $msgHtml
+                        "<tr><td class='$lnClass' style='padding:4px 6px 4px 10px;color:var(--psu-term-muted-fg);text-align:right;user-select:none;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums;'>$i</td><td class='$tsClass' style='padding:4px 10px;color:var(--psu-term-muted-fg);white-space:nowrap;vertical-align:top;'>{0}</td><td style='padding:4px 10px;color:{1};font-weight:600;white-space:nowrap;vertical-align:top;'>{2}</td><td style='padding:4px 10px;color:var(--psu-term-fg);white-space:pre-wrap;vertical-align:top;'>{3}</td></tr>" -f [System.Net.WebUtility]::HtmlEncode($ts), $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($_.Stream), $msgHtml
                     })
-                    '<div style="max-height:500px;overflow:auto;background:#111;"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="' + $lnClass + '" style="text-align:right;padding:6px 6px 6px 10px;color:#546e7a;border-bottom:1px solid #37474f;background:#111;position:sticky;top:0;user-select:none;">#</th><th class="' + $tsClass + '" style="text-align:left;padding:6px 10px;color:#b0bec5;border-bottom:1px solid #37474f;background:#111;position:sticky;top:0;">Timestamp</th><th style="text-align:left;padding:6px 10px;color:#b0bec5;border-bottom:1px solid #37474f;background:#111;position:sticky;top:0;">Stream</th><th style="text-align:left;padding:6px 10px;color:#b0bec5;border-bottom:1px solid #37474f;background:#111;position:sticky;top:0;">Message</th></tr></thead><tbody>' + ($structRows -join '') + '</tbody></table></div>'
+                    '<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="' + $lnClass + '" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="' + $tsClass + '" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Timestamp</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Stream</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Message</th></tr></thead><tbody>' + ($structRows -join '') + '</tbody></table></div>'
                 }
                 else
                 {
@@ -373,42 +409,46 @@ function New-UDPsuJobTerminalView
                         $i++
                         $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
                         $msgHtml = $_.Message | Convert-AnsiToHtml
-                        "<div style='display:flex;margin:0 0 4px 0;'><span class='$lnClass' style='$lnStyle'>$i</span><span><span class='$tsClass' style='color:#90a4ae;'>[{0}]</span> <span style='color:{1};font-weight:600;'>[{2}]</span> <span>{3}</span></span></div>" -f $ts, $_.StreamColor, $_.Stream, $msgHtml
+                        "<div style='display:flex;margin:0 0 4px 0;'><span class='$lnClass' style='$lnStyle'>$i</span><span><span class='$tsClass' style='color:var(--psu-term-muted-fg);'>[{0}]</span> <span style='color:{1};font-weight:600;'>[{2}]</span> <span>{3}</span></span></div>" -f $ts, $_.StreamColor, $_.Stream, $msgHtml
                     })
-                    '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:#e0e0e0;padding:12px 14px;position:relative;z-index:1;">' + ($lines -join '') + '</div>'
+                    '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:var(--psu-term-fg);padding:12px 14px;position:relative;z-index:1;">' + ($lines -join '') + '</div>'
                 }
             } $dynRaw ([Int32]$dynMaxRows) $dynView $dynEid
         }
         else
         {
-            '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:#111;color:#ef5350;">Module unavailable.</div>'
+            '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Module unavailable.</div>'
         }
 
         $refreshedAt = '{0:yyyy-MM-dd HH:mm:ss}' -f [datetime]::Now
-        New-UDHtml -Markup ($markup + "<div style='font-family:Consolas,Monaco,monospace;font-size:10px;color:#37474f;padding:2px 14px 4px;background:#111;'>fetched $refreshedAt</div>")
+        New-UDHtml -Markup ($markup + "<div style='font-family:Consolas,Monaco,monospace;font-size:10px;color:var(--psu-term-muted-fg);padding:2px 14px 4px;background:var(--psu-term-bg);'>fetched $refreshedAt</div>")
     }
 
     New-UDElement -Tag 'div' -Id $ElementId -Attributes @{
         style = @{
             borderRadius = '6px'
             overflow     = 'hidden'
-            border       = '1px solid #37474f'
+            border       = '1px solid var(--psu-term-border)'
             boxShadow    = '0 2px 8px rgba(0,0,0,0.3)'
             marginTop    = '4px'
         }
     } -Content {
 
-        # CSS for line-number toggle + localStorage restore
-    $lnCss = '.' + $ElementId + '-ln-hidden .ln-' + $ElementId + ' { display:none !important; }' +
-             '.' + $ElementId + '-ts-hidden .ts-' + $ElementId + ' { display:none !important; }'
-        New-UDHtml -Markup ('<style>' + $lnCss + '</style><script>' + $lnRestoreJs + '</script>')
+        # Theme CSS custom properties (see Get-UDPsuJobThemeStyleBlock), line-number/timestamp
+        # toggle CSS, and localStorage restore script. Emitted once here (not inside the
+        # auto-refreshing dynamic panels below) since New-UDHtml's dangerouslySetInnerHTML
+        # would otherwise reset it on every refresh.
+        $themeStyleBlock = Get-UDPsuJobThemeStyleBlock -ElementId $ElementId -Theme $Theme -CustomCss $CustomCss
+        $lnCss = '.' + $ElementId + '-ln-hidden .ln-' + $ElementId + ' { display:none !important; }' +
+                 '.' + $ElementId + '-ts-hidden .ts-' + $ElementId + ' { display:none !important; }'
+        New-UDHtml -Markup ($themeStyleBlock + '<style>' + $lnCss + '</style><script>' + $lnRestoreJs + '</script>')
 
         # Title bar
         New-UDElement -Tag 'div' -Attributes @{
             style = @{
-                background   = '#263238'
+                background   = 'var(--psu-term-chrome-bg)'
                 display      = 'block'
-                borderBottom = '1px solid #37474f'
+                borderBottom = '1px solid var(--psu-term-border)'
             }
         } -Content {
             New-UDHtml -Markup $titleBarHtml
@@ -416,7 +456,7 @@ function New-UDPsuJobTerminalView
 
         # Terminal panel - PSU wrapper preserves display style across dynamic re-renders
         New-UDElement -Tag 'div' -Id "$ElementId-panel-terminal" -Attributes @{
-            style = @{ background = '#111'; position = 'relative' }
+            style = @{ background = 'var(--psu-term-bg)'; position = 'relative' }
         } -Content {
             if ($svgWatermarkHtml) { New-UDHtml -Markup $svgWatermarkHtml }
             $termDynParams = @{
@@ -444,14 +484,14 @@ function New-UDPsuJobTerminalView
 
         # Status bar + refresh button (syncs both dynamics)
         $liveIndicator = if (-not $isTerminalJob) {
-            "<span style='color:#42a5f5;margin-right:8px;'>&#9679;&nbsp;live</span>"
+            "<span style='color:var(--psu-term-accent);margin-right:8px;'>&#9679;&nbsp;live</span>"
         } else { '' }
 
         New-UDElement -Tag 'div' -Attributes @{
             style = @{
-                background   = '#1c2429'
+                background   = 'var(--psu-term-status-bar-bg)'
                 padding      = '4px 14px'
-                borderTop    = '1px solid #2d3d45'
+                borderTop    = '1px solid var(--psu-term-border)'
                 fontFamily   = 'Consolas,Monaco,monospace'
                 fontSize     = '11px'
                 display      = 'flex'
@@ -466,7 +506,7 @@ function New-UDPsuJobTerminalView
                     Sync-UDElement -Id $structuredDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId)
                 }
             } -Style @{
-                color      = '#546e7a'
+                color      = 'var(--psu-term-muted-fg)'
                 marginLeft = 'auto'
                 minWidth   = 'unset'
                 padding    = '0 8px'

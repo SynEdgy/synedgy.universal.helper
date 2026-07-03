@@ -8,6 +8,9 @@ function ConvertFrom-PsuJobOutputEntry
         Maps raw objects returned by Get-PSUJobOutput (or stored in Job.Output) to a
         consistent PSCustomObject with Timestamp, Stream, StreamColor, and Message
         properties, suitable for rendering in a terminal or structured table view.
+        StreamColor is a CSS var() reference (e.g. 'var(--psu-term-stream-error)') rather
+        than a literal color, so rendered output follows the light/dark theme set by
+        Get-UDPsuJobThemeStyleBlock instead of being hardcoded to one palette.
         Accepts pipeline input for use in streaming pipelines.
 
         .PARAMETER Entry
@@ -47,12 +50,12 @@ function ConvertFrom-PsuJobOutputEntry
 
         $streamColor = switch ($streamName)
         {
-            'Error'       { '#ef5350' }
-            'Warning'     { '#ffa726' }
-            'Information' { '#42a5f5' }
-            'Verbose'     { '#ffee58' }
-            'Debug'       { '#ab47bc' }
-            Default       { '#e0e0e0' }
+            'Error'       { 'var(--psu-term-stream-error)' }
+            'Warning'     { 'var(--psu-term-stream-warning)' }
+            'Information' { 'var(--psu-term-stream-information)' }
+            'Verbose'     { 'var(--psu-term-stream-verbose)' }
+            'Debug'       { 'var(--psu-term-stream-debug)' }
+            Default       { 'var(--psu-term-stream-default)' }
         }
 
         $messageValue = $null

@@ -13,8 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added supporting private helpers `Convert-PlainTextToHtml`, `Convert-AnsiToHtml`,
   and `ConvertFrom-PsuJobOutputEntry` used by the new components.
 - Added `images/synedgy_pwsh` branding assets used by the new components.
+- Added automatic light/dark theming to `New-UDPsuJobHeader` and
+  `New-UDPsuJobTerminalView` via a new `-Theme` parameter (`Auto` (default), `Light`,
+  `Dark`). `Auto` follows PSU's own theme switch live (no page reload), using the
+  `data-theme` attribute PSU sets on `<html>`. The light palette is inspired by the
+  classic PowerShell ISE / VS Code light theme colors. Added a `-CustomCss`
+  parameter on both components for further customizing the look with raw CSS,
+  which is appended after (and can override) the theme rules.
+- Added private helpers `Get-UDPsuJobThemePalette`, `Get-UDPsuJobThemeStyleBlock`,
+  and `ConvertTo-UDPsuThemedIconMarkup` supporting the new theming feature. The
+  themed icon helper always uses the plain monochrome `pwsh_custom_black.svg`
+  icon for light theme and `pwsh_custom_white.svg` for dark theme.
 
 ### Changed
+
+- `ConvertFrom-PsuJobOutputEntry`'s `StreamColor` property now returns a CSS
+  `var(--psu-term-stream-*)` reference instead of a literal hex color, so job
+  output stream coloring follows the light/dark theme instead of being fixed to
+  one palette. This is a private helper; the change is only user-visible via the
+  themed rendering of `New-UDPsuJobTerminalView`.
 
 - Changed Warning messages to Debug messages when overriding type accelerators.
   This is to reduce noise in the output and only show warnings for actual issues.
