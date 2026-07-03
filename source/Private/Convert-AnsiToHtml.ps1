@@ -13,7 +13,7 @@ function Convert-AnsiToHtml
         The string potentially containing ANSI escape sequences. Accepts pipeline input.
 
         .EXAMPLE
-        "`e[32mSuccess`e[0m: done" | Convert-AnsiToHtml
+        "$([char]27)[32mSuccess$([char]27)[0m: done" | Convert-AnsiToHtml
         # Returns: <span style='color:#66bb6a;'>Success</span>: done
 
         .EXAMPLE

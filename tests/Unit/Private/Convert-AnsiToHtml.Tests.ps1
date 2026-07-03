@@ -34,7 +34,8 @@ Describe 'Convert-AnsiToHtml' {
 
     It 'Should wrap colored text in a span with inline style' {
         InModuleScope -ScriptBlock {
-            $result = Convert-AnsiToHtml -Message "`e[32mSuccess`e[0m"
+            $esc = [char]27
+            $result = Convert-AnsiToHtml -Message "${esc}[32mSuccess${esc}[0m"
             $result | Should -Match 'color:#66bb6a'
             $result | Should -Match 'Success'
         }
@@ -42,7 +43,8 @@ Describe 'Convert-AnsiToHtml' {
 
     It 'Should reset color on SGR 0' {
         InModuleScope -ScriptBlock {
-            $result = Convert-AnsiToHtml -Message "`e[31mRed`e[0m Normal"
+            $esc = [char]27
+            $result = Convert-AnsiToHtml -Message "${esc}[31mRed${esc}[0m Normal"
             $result | Should -Match 'Normal'
             # Text after reset should not be inside a color span
             $result | Should -Not -Match 'Normal</span>'

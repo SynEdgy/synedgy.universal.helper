@@ -34,7 +34,8 @@ Describe 'Convert-PlainTextToHtml' {
 
     It 'Should strip ANSI escape sequences' {
         InModuleScope -ScriptBlock {
-            $result = Convert-PlainTextToHtml -Text "`e[32mGreen`e[0m"
+            $esc = [char]27
+            $result = Convert-PlainTextToHtml -Text "${esc}[32mGreen${esc}[0m"
             $result | Should -Be 'Green'
         }
     }
