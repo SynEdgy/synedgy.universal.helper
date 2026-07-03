@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `ConvertTo-UDPsuThemedIconMarkup` supporting the new theming feature. The
   themed icon helper always uses the plain monochrome `pwsh_custom_black.svg`
   icon for light theme and `pwsh_custom_white.svg` for dark theme.
+- Added `-HideLineNumbers` and `-HideTimestamps` switch parameters to
+  `New-UDPsuJobTerminalView` to control whether line numbers and timestamps are
+  shown by default for a first-time viewer (shown by default when omitted). A
+  viewer's own manual toggle choice, remembered in `localStorage`, still takes
+  precedence over these defaults on later visits.
 
 ### Changed
 

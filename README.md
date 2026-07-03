@@ -64,6 +64,18 @@ Icon assets always use the plain monochrome variants: `pwsh_custom_black.svg` fo
 `.psu-theme-light-only` / `.psu-theme-dark-only` spans) and shown/hidden via the same CSS rules
 that drive the color variables, so the icon also switches live with no JavaScript required.
 
+### Default line numbers / timestamps visibility
+
+`New-UDPsuJobTerminalView` accepts `-HideLineNumbers` and `-HideTimestamps` switches to control
+whether line numbers and timestamps are shown by default for a first-time viewer (shown by default
+when omitted). Once a viewer manually clicks the toggle buttons, their choice is remembered in the
+browser's `localStorage` and takes precedence over these defaults on later visits to the same page.
+
+```powershell
+# Hide both by default for first-time viewers; still toggleable per-viewer afterwards
+New-UDPsuJobTerminalView -JobId $job.Id -HideLineNumbers -HideTimestamps
+```
+
 ### Authorization: prefer an app token over -Integrated
 
 When fetching the `$job` passed into these components, prefer an app token via the Management API
