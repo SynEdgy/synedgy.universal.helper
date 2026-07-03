@@ -16,7 +16,8 @@ consuming projects (e.g. ComsolCentral, PSUConfig):
 Both components rely on private helpers (`ConvertFrom-PsuJobOutputEntry`, `Convert-AnsiToHtml`,
 `Convert-PlainTextToHtml`, `Get-UDPsuJobThemePalette`, `Get-UDPsuJobThemeStyleBlock`,
 `ConvertTo-UDPsuThemedIconMarkup`) and branding assets under `images/synedgy_pwsh/` that ship with
-this module -- consuming projects do not need to duplicate them.
+this module -- consuming projects do not need to duplicate them. See
+`images/synedgy_pwsh/COPYRIGHT.md` for the copyright/usage notice covering that artwork.
 
 ### Usage
 
