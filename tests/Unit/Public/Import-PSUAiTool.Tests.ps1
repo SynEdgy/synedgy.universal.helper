@@ -74,4 +74,50 @@ Describe 'Import-PSUAiTool' {
             synedgy.universal.helper\Import-PSUAiTool -Module $script:testModuleName -WhatIf -ErrorAction Stop
         } | Should -Not -Throw
     }
+
+    It 'Should not overwrite an already-existing backing PSU Script' {
+        InModuleScope -Parameters @{ TestModuleName = $script:testModuleName } -ScriptBlock {
+            param($TestModuleName)
+
+            # Stub functions for the real PowerShell Universal 'Universal' module cmdlets,
+            # which are not installed in this test environment (build agents don't have
+            # PSU installed). These must be defined here, in this same InModuleScope
+            # invocation, immediately before Mock -- function definitions from a separate
+            # InModuleScope call do not persist into this one, and Pester's Mock cannot
+            # create a mock for a command that isn't resolvable at all.
+            function Get-PSUScript { [CmdletBinding()] param([string] $Name) }
+            function New-PSUScript { [CmdletBinding()] param([object] $Module, [string] $Command, [string] $Environment) }
+            function New-PSUAiTool { [CmdletBinding()] param([string] $Name, [string] $Description, [string] $ScriptFullPath, [bool] $Authenticated, [string[]] $Role, [bool] $Mcp) }
+
+            Mock -CommandName 'Get-PSUScript' -MockWith { [pscustomobject]@{ FullPath = 'ImportPSUAiToolTestModule\Test-ImportAiToolSampleCommand' } }
+            Mock -CommandName 'New-PSUScript' -MockWith { }
+            Mock -CommandName 'New-PSUAiTool' -MockWith { }
+
+            Import-PSUAiTool -Module $TestModuleName -Confirm:$false
+
+            Should -Invoke -CommandName 'Get-PSUScript' -Times 1 -Exactly
+            Should -Invoke -CommandName 'New-PSUScript' -Times 0 -Exactly
+            Should -Invoke -CommandName 'New-PSUAiTool' -Times 1 -Exactly
+        }
+    }
+
+    It 'Should create a backing PSU Script when one does not already exist' {
+        InModuleScope -Parameters @{ TestModuleName = $script:testModuleName } -ScriptBlock {
+            param($TestModuleName)
+
+            function Get-PSUScript { [CmdletBinding()] param([string] $Name) }
+            function New-PSUScript { [CmdletBinding()] param([object] $Module, [string] $Command, [string] $Environment) }
+            function New-PSUAiTool { [CmdletBinding()] param([string] $Name, [string] $Description, [string] $ScriptFullPath, [bool] $Authenticated, [string[]] $Role, [bool] $Mcp) }
+
+            Mock -CommandName 'Get-PSUScript' -MockWith { $null }
+            Mock -CommandName 'New-PSUScript' -MockWith { }
+            Mock -CommandName 'New-PSUAiTool' -MockWith { }
+
+            Import-PSUAiTool -Module $TestModuleName -Confirm:$false
+
+            Should -Invoke -CommandName 'Get-PSUScript' -Times 1 -Exactly
+            Should -Invoke -CommandName 'New-PSUScript' -Times 1 -Exactly
+            Should -Invoke -CommandName 'New-PSUAiTool' -Times 1 -Exactly
+        }
+    }
 }
