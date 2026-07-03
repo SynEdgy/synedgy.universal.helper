@@ -29,6 +29,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shown by default for a first-time viewer (shown by default when omitted). A
   viewer's own manual toggle choice, remembered in `localStorage`, still takes
   precedence over these defaults on later visits.
+- Added an `AiTool` class attribute (mirroring the existing `APIEndpoint` attribute
+  pattern) that can decorate a public function to expose it as a PowerShell
+  Universal AI tool. Added `Get-ModuleAiTool`, which scans a module's exported
+  functions for `[AiTool()]`-decorated commands and builds their registration
+  metadata (`Name`, `Description`, `ScriptFullPath`, `Authenticated`, `Role`,
+  `Mcp`, `Environment`), and `Import-PSUAiTool`, which registers each discovered
+  function as a PSU Script (`New-PSUScript`) and AI tool (`New-PSUAiTool`) in one
+  call, analogous to how `Import-PSUEndpoint` wires up `[APIEndpoint()]`-decorated
+  functions.
+- Added `source/WikiSource` (Home, UD Job Components, API Endpoint Attribute, AI
+  Tool Attribute, PSU Platform Notes pages, and screenshots) as the canonical
+  source for the published GitHub wiki, and wired the `DscResource.DocGenerator`
+  tasks (`Create_Wiki_Output_Folder`, `Generate_Conceptual_Help`,
+  `Generate_Markdown_For_Public_Commands`,
+  `Generate_External_Help_File_For_Public_Commands`,
+  `Clean_Markdown_Of_Public_Commands`, `Copy_Source_Wiki_Folder`,
+  `Generate_Wiki_Sidebar`, `Clean_Markdown_Metadata`) into the `build` workflow, a
+  new `docs` workflow (`Package_Wiki_Content`) into `pack`, and enabled
+  `Publish_GitHub_Wiki_Content` in the `publish` workflow in `build.yaml`. Added
+  `PlatyPS` to `RequiredModules.psd1` (required for command markdown generation).
 
 ### Changed
 

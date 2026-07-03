@@ -53,10 +53,22 @@ BuildWorkflow:
     - Build_Module_ModuleBuilder
     - Build_NestedModules_ModuleBuilder
     - Create_changelog_release_output
+    - Create_Wiki_Output_Folder
+    - Generate_Conceptual_Help
+    - Generate_Markdown_For_Public_Commands
+    - Generate_External_Help_File_For_Public_Commands
+    - Clean_Markdown_Of_Public_Commands
+    - Copy_Source_Wiki_Folder
+    - Generate_Wiki_Sidebar
+    - Clean_Markdown_Metadata
+
+  docs:
+    - Package_Wiki_Content
 
   pack:
     - build
     - package_module_nupkg
+    - docs
 
   # Defining test task to be run when invoking `./build.ps1 -Tasks test`
   test:
@@ -76,7 +88,7 @@ BuildWorkflow:
   publish:
     - Publish_Release_To_GitHub # Runs first, if token is expired it will fail early
     - publish_module_to_gallery
-    # - Publish_GitHub_Wiki_Content
+    - Publish_GitHub_Wiki_Content
     # - Create_ChangeLog_GitHub_PR # is called in the Azure Pipeline Yaml after a successful publish
 
 
@@ -87,7 +99,8 @@ BuildWorkflow:
 GitHubConfig:
   GitHubFilesToAdd:
     - 'CHANGELOG.md'
-  ReleaseAssets: []
+  ReleaseAssets:
+    - output/WikiContent.zip
   GitHubConfigUserName: dscbot
   GitHubConfigUserEmail: dsccommunity@outlook.com
   UpdateChangelogOnPrerelease: false
@@ -151,6 +164,8 @@ ModuleBuildTasks:
     - '*.build.Sampler.ib.tasks'
   Sampler.GitHubTasks:
     - '*.ib.tasks'
+  DscResource.DocGenerator:
+    - 'Task.*'
 
 
 # Invoke-Build Header to be used to 'decorate' the terminal output of the tasks.
@@ -164,3 +179,21 @@ TaskHeader: |
   Write-Build DarkGray "  $Path"
   Write-Build DarkGray "  $($Task.InvocationInfo.ScriptName):$($Task.InvocationInfo.ScriptLineNumber)"
   ""
+
+####################################################
+#      DscResource.DocGenerator Configuration      #
+####################################################
+DscResource.DocGenerator:
+  Generate_Conceptual_Help:
+    MarkdownCodeRegularExpression:
+      - '\`(.+?)\`' # Match inline code-block
+      - '\\(\\)' # Match escaped backslash
+      - '\[[^\[]+\]\((.+?)\)' # Match markdown URL
+      - '_(.+?)_' # Match Italic (underscore)
+      - '\*\*(.+?)\*\*' # Match bold
+      - '\*(.+?)\*' # Match Italic (asterisk)
+  Publish_GitHub_Wiki_Content:
+    Debug: false
+  Generate_Wiki_Sidebar:
+     Debug: false
+     AlwaysOverwrite: true

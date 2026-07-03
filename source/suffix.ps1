@@ -6,6 +6,7 @@ $typesToExportAsIs = @(
     'Documentation'
     'APIInput'
     'APIOutput'
+    'AiTool'
 )
 
 # The type accelerators created will be ModuleName.ClassName (to avoid conflicts with other modules until you use 'using moduleName'
