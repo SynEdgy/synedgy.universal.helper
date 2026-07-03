@@ -5,6 +5,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `New-UDPsuJobHeader` and `New-UDPsuJobTerminalView` public functions
+  under `UDComponents`, providing reusable Universal Dashboard components to
+  render a PSU job summary header and a terminal-style job output view.
+- Added supporting private helpers `Convert-PlainTextToHtml`, `Convert-AnsiToHtml`,
+  and `ConvertFrom-PsuJobOutputEntry` used by the new components.
+- Added `images/synedgy_pwsh` branding assets used by the new components.
+
 ### Changed
 
 - Changed Warning messages to Debug messages when overriding type accelerators.
