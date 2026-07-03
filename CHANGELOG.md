@@ -63,6 +63,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `Import-PSUAiTool` leaking `New-PSUScript`'s return object onto its output
+  pipeline alongside the intended `New-PSUAiTool` result. Since a module's
+  `.universal/aiTools.ps1` resource file is expected by PSU to emit only `AiTool`
+  objects, the leaked `PowerShellUniversal.Script` object caused PSU to fail
+  loading the configuration with `Cannot convert the "<Module>\<Command>" value of
+  type "PowerShellUniversal.Script" to type
+  "PowerShellUniversal.Models.Intelligence.AiTool"`, silently preventing all AI
+  tools declared in that file from registering. `New-PSUScript`'s result is now
+  suppressed with `$null =`.
+- Changed `Import-PSUAiTool` to only create a backing PSU Script when one doesn't
+  already exist for the `<Module>\<Command>` identity (via `Get-PSUScript`), instead
+  of unconditionally re-declaring it on every config reload. A script may already be
+  explicitly declared elsewhere (e.g. `scripts.ps1`) with more specific settings
+  (Role, Timeout, Tags, etc.); the previous unconditional call would have silently
+  overwritten that configuration with a bare-bones one every time PSU reloaded its
+  config.
 - Fixed the themed icon (top-right/title-bar `>_` icon) in `New-UDPsuJobHeader` and
   `New-UDPsuJobTerminalView` always rendering the light (black) variant regardless
   of PSU's active theme when `-Theme Auto` (the default). `ConvertTo-UDPsuThemedIconMarkup`
