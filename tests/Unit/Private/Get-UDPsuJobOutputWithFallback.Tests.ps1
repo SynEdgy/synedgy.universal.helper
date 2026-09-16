@@ -26,25 +26,14 @@ AfterAll {
 
 Describe 'Get-UDPsuJobOutputWithFallback' {
     BeforeAll {
-        InModuleScope -ScriptBlock {
-            function Get-PSUJobOutput
-            {
-                param
-                (
-                    [System.Int64]
-                    $JobId,
-
-                    [System.Boolean]
-                    $AsObject,
-
-                    [System.String]
-                    $ComputerName,
-
-                    [System.String]
-                    $AppToken
-                )
-            }
+        function global:Get-PSUJobOutput
+        {
+            param($JobId, $AsObject, $ComputerName, $AppToken)
         }
+    }
+
+    AfterAll {
+        Remove-Item -Path 'Function:\global:Get-PSUJobOutput'
     }
 
     It 'Should return live output without using the fallback' {
