@@ -25,6 +25,28 @@ AfterAll {
 }
 
 Describe 'Get-UDPsuJobOutputWithFallback' {
+    BeforeAll {
+        InModuleScope -ScriptBlock {
+            function Get-PSUJobOutput
+            {
+                param
+                (
+                    [System.Int64]
+                    $JobId,
+
+                    [System.Boolean]
+                    $AsObject,
+
+                    [System.String]
+                    $ComputerName,
+
+                    [System.String]
+                    $AppToken
+                )
+            }
+        }
+    }
+
     It 'Should return live output without using the fallback' {
         Mock -CommandName Get-PSUJobOutput -MockWith {
             [PSCustomObject]@{ Message = 'live output' }
