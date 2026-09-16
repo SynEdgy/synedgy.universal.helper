@@ -28,11 +28,22 @@ New-UDPsuJobTerminalView -JobId $job.Id -JobStatus ([string]$job.Status) `
     -JobOutputSnapshot @($job.Output) -IncludeStructuredTable
 ```
 
-`New-UDPsuJobTerminalView`'s live-refresh `New-UDDynamic` content block imports this module
-(`synedgy.universal.helper`) and calls its private helpers via `& (Get-Module ...) { ... }`, since
-private module functions are not otherwise accessible from a `New-UDDynamic` sync/refresh
-runspace. Consuming projects do not need to do anything extra for this to work as long as
-`synedgy.universal.helper` is installed/available on the PSU server.
+`New-UDPsuJobTerminalView`'s live-refresh `New-UDDynamic` content block imports the exact module
+path used by the parent dashboard runspace and calls its private helpers from that module scope,
+since private module functions are not otherwise accessible from a `New-UDDynamic` sync/refresh
+runspace. This also supports deployments where the module was loaded directly from a path that
+is not discoverable through the refresh runspace's `PSModulePath`.
+
+Pass `-JobOutputSnapshot @($job.Output)` when the job object is already available. If a refresh
+runspace cannot retrieve live output (for example because its connection or authentication
+context differs from the parent dashboard runspace), the component displays that snapshot and a
+visible warning instead of rendering a blank terminal.
+
+The component also writes failure diagnostics with PSU's built-in `Write-PSULog` command. View
+them under **Observe > Logging > Live Logs**, filtering `Feature` to `App` and `Resource` to
+`New-UDPsuJobTerminalView:<ElementId>`. Events include the job id, dynamic view, runspace stage,
+fallback usage, and exception message. App tokens are redacted from fetch errors, and neither app
+tokens nor job-output content are included as structured log properties.
 
 ### Theming: light/dark, automatic or forced, with custom CSS overrides
 

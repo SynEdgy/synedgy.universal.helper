@@ -63,6 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `New-UDPsuJobTerminalView` rendering a blank output panel when its
+  `New-UDDynamic` refresh runspace could not rediscover the helper module or fetch
+  live job output. The refresh runspace now imports the exact module path used by
+  the parent dashboard, falls back to `-JobOutputSnapshot`, and displays a clear
+  warning when live output is unavailable. Failures are also written to PSU Live
+  Logs with structured job, view, runspace-stage, fallback, and exception context,
+  without logging app tokens or job-output content.
 - Fixed `Import-PSUAiTool` leaking `New-PSUScript`'s return object onto its output
   pipeline alongside the intended `New-PSUAiTool` result. Since a module's
   `.universal/aiTools.ps1` resource file is expected by PSU to emit only `AiTool`

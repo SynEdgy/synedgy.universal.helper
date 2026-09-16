@@ -7,8 +7,10 @@ function New-UDPsuJobTerminalView
         .DESCRIPTION
         Displays job output in a terminal-style window. The terminal content panel is a
         New-UDDynamic that refreshes on demand via a button click, fetching the latest
-        output from Get-PSUJobOutput each time. The structured events tab and status bar
-        are rendered once from the initial fetch at page load.
+        output from Get-PSUJobOutput each time. If a refresh runspace cannot fetch live
+        output, the component renders JobOutputSnapshot instead and displays the fetch
+        error rather than showing a blank terminal. The structured events tab and status
+        bar are rendered once from the initial fetch at page load.
 
         Uses private helpers from synedgy.universal.helper: ConvertFrom-PsuJobOutputEntry,
         Convert-AnsiToHtml, Convert-PlainTextToHtml.
@@ -35,8 +37,8 @@ function New-UDPsuJobTerminalView
         Current job status string (passed to the terminal dynamic for context).
 
         .PARAMETER JobOutputSnapshot
-        Pre-fetched job output records used as initial data for the structured table
-        and status bar. The terminal dynamic performs its own live fetch.
+        Pre-fetched job output records used as fallback data for the terminal and
+        structured views when their live refresh runspace cannot retrieve output.
 
         .PARAMETER ElementId
         Root element id. Defaults to "psu-job-terminal-<JobId>".
@@ -143,6 +145,7 @@ function New-UDPsuJobTerminalView
     )
 
     $resolvedAppToken = $AppToken
+    $helperModulePath = $MyInvocation.MyCommand.Module.Path
 
     $configUrl    = if (Get-Command -Name 'Get-ModuleConfig' -ErrorAction SilentlyContinue)
     {
@@ -155,29 +158,16 @@ function New-UDPsuJobTerminalView
     $resolvedIncludeStructuredTable = $IncludeStructuredTable.IsPresent
 
     # --- Initial fetch: drives the structured table and status bar ---
-    $initialRaw = @()
-    try
+    $initialOutputResult = Get-UDPsuJobOutputWithFallback -JobId $JobId -AppToken $resolvedAppToken -UniversalServerUrl $resolvedUrl -FallbackOutput $JobOutputSnapshot
+    $initialRaw = @($initialOutputResult.OutputRecords)
+    if (-not [string]::IsNullOrWhiteSpace($initialOutputResult.ErrorMessage))
     {
-        $fetchParams = @{
-            JobId        = $JobId
-            AsObject     = $true
-            ComputerName = $resolvedUrl
-            ErrorAction  = 'Stop'
+        Write-UDPsuComponentLog -Level Warning -Resource ('New-UDPsuJobTerminalView:{0}' -f $ElementId) -Message 'Initial live job output fetch failed.' -Properties @{
+            JobId            = $JobId
+            UsedFallback     = $initialOutputResult.UsedFallback
+            ExceptionMessage = $initialOutputResult.ErrorMessage
+            RunspaceStage    = 'Initial'
         }
-        if (-not [string]::IsNullOrWhiteSpace($resolvedAppToken))
-        {
-            $fetchParams['AppToken'] = $resolvedAppToken
-        }
-        $initialRaw = @(Get-PSUJobOutput @fetchParams)
-    }
-    catch
-    {
-        $initialRaw = @()
-    }
-
-    if (@($initialRaw).Count -eq 0)
-    {
-        $initialRaw = @($JobOutputSnapshot)
     }
 
     $initialDisplayRows = @(
@@ -348,8 +338,8 @@ function New-UDPsuJobTerminalView
     $isTerminalJob       = [string]$JobStatus -in $terminalStates
     $terminalDynamicId   = "$ElementId-terminal-content"
     $structuredDynamicId = "$ElementId-structured-content"
-    # ArgumentList: 0=JobId, 1=Token, 2=Url, 3=MaxRows, 4=view, 5=ElementId
-    $dynArgs = @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows)
+    # ArgumentList: 0=JobId, 1=Token, 2=Url, 3=MaxRows, 4=view, 5=ElementId,
+    # 6=module path, 7=fallback output.
 
     # Shared dynamic content factory - fetches output and renders the given view type.
     # viewType: 'terminal' | 'structured'
@@ -360,64 +350,130 @@ function New-UDPsuJobTerminalView
         $dynMaxRows = [Int32]$ArgumentList[3]
         $dynView    = [string]$ArgumentList[4]   # 'terminal' or 'structured'
         $dynEid     = [string]$ArgumentList[5]   # ElementId for CSS class scoping
+        $dynModulePath = [string]$ArgumentList[6]
+        $dynFallback = @($ArgumentList[7] | ForEach-Object { $_ })
 
-        Microsoft.PowerShell.Core\Import-Module -Name 'synedgy.universal.helper' -ErrorAction SilentlyContinue
-        $helperModule = Microsoft.PowerShell.Core\Get-Module -Name 'synedgy.universal.helper'
-
-        $dynRaw = @()
+        $helperModule = $null
+        $moduleError = $null
         try
         {
-            $fetchParams = @{
-                JobId        = $dynJobId
-                AsObject     = $true
-                ComputerName = $dynUrl
-                ErrorAction  = 'Stop'
-            }
-            if (-not [string]::IsNullOrWhiteSpace($dynToken))
+            $moduleTarget = if ([string]::IsNullOrWhiteSpace($dynModulePath))
             {
-                $fetchParams['AppToken'] = $dynToken
+                'synedgy.universal.helper'
             }
-            $dynRaw = @(Get-PSUJobOutput @fetchParams)
+            else
+            {
+                $dynModulePath
+            }
+            $helperModule = @(
+                Microsoft.PowerShell.Core\Import-Module -Name $moduleTarget -PassThru -ErrorAction Stop
+            )[0]
         }
-        catch { $dynRaw = @() }
+        catch
+        {
+            $moduleError = $_.Exception.Message
+        }
 
         $markup = if ($null -ne $helperModule)
         {
-            & $helperModule {
-                param($raw, $max, $view, $eid)
-                $rows = @($raw | Sort-Object -Property Timestamp | ConvertFrom-PsuJobOutputEntry)
-                if ($max -gt 0) { $rows = @($rows | Select-Object -Last $max) }
-                $lnClass = 'ln-' + $eid
-                $tsClass = 'ts-' + $eid
-                $lnStyle = 'color:var(--psu-term-muted-fg);min-width:3ch;text-align:right;margin-right:12px;user-select:none;flex-shrink:0;font-variant-numeric:tabular-nums;'
+            try
+            {
+                & $helperModule {
+                    param($jobId, $token, $url, $fallback, $max, $view, $eid)
+                    $logResource = 'New-UDPsuJobTerminalView:{0}' -f $eid
+                    $outputResult = Get-UDPsuJobOutputWithFallback -JobId $jobId -AppToken $token -UniversalServerUrl $url -FallbackOutput $fallback
+                    if (-not [string]::IsNullOrWhiteSpace($outputResult.ErrorMessage))
+                    {
+                        Write-UDPsuComponentLog -Level Warning -Resource $logResource -Message 'Dynamic live job output fetch failed.' -Properties @{
+                            JobId            = $jobId
+                            UsedFallback     = $outputResult.UsedFallback
+                            ExceptionMessage = $outputResult.ErrorMessage
+                            RunspaceStage    = 'Dynamic'
+                            View             = $view
+                        }
+                    }
 
-                if ($view -eq 'structured')
-                {
-                    $i = 0
-                    $structRows = @($rows | ForEach-Object {
-                        $i++
-                        $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
-                        $msgHtml = $_.Message | Convert-PlainTextToHtml
-                        "<tr><td class='$lnClass' style='padding:4px 6px 4px 10px;color:var(--psu-term-muted-fg);text-align:right;user-select:none;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums;'>$i</td><td class='$tsClass' style='padding:4px 10px;color:var(--psu-term-muted-fg);white-space:nowrap;vertical-align:top;'>{0}</td><td style='padding:4px 10px;color:{1};font-weight:600;white-space:nowrap;vertical-align:top;'>{2}</td><td style='padding:4px 10px;color:var(--psu-term-fg);white-space:pre-wrap;vertical-align:top;'>{3}</td></tr>" -f [System.Net.WebUtility]::HtmlEncode($ts), $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($_.Stream), $msgHtml
-                    })
-                    '<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="' + $lnClass + '" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="' + $tsClass + '" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Timestamp</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Stream</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Message</th></tr></thead><tbody>' + ($structRows -join '') + '</tbody></table></div>'
-                }
-                else
-                {
-                    $i = 0
-                    $lines = @($rows | ForEach-Object {
-                        $i++
-                        $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
-                        $msgHtml = $_.Message | Convert-AnsiToHtml
-                        "<div style='display:flex;margin:0 0 4px 0;'><span class='$lnClass' style='$lnStyle'>$i</span><span><span class='$tsClass' style='color:var(--psu-term-muted-fg);'>[{0}]</span> <span style='color:{1};font-weight:600;'>[{2}]</span> <span>{3}</span></span></div>" -f $ts, $_.StreamColor, $_.Stream, $msgHtml
-                    })
-                    '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:var(--psu-term-fg);padding:12px 14px;position:relative;z-index:1;">' + ($lines -join '') + '</div>'
-                }
-            } $dynRaw ([Int32]$dynMaxRows) $dynView $dynEid
+                    $rows = @($outputResult.OutputRecords | Sort-Object -Property Timestamp | ConvertFrom-PsuJobOutputEntry)
+                    if ($max -gt 0) { $rows = @($rows | Select-Object -Last $max) }
+                    $lnClass = 'ln-' + $eid
+                    $tsClass = 'ts-' + $eid
+                    $lnStyle = 'color:var(--psu-term-muted-fg);min-width:3ch;text-align:right;margin-right:12px;user-select:none;flex-shrink:0;font-variant-numeric:tabular-nums;'
+                    $noticeMarkup = if (-not [string]::IsNullOrWhiteSpace($outputResult.ErrorMessage))
+                    {
+                        $encodedError = [System.Net.WebUtility]::HtmlEncode($outputResult.ErrorMessage)
+                        $snapshotText = if ($outputResult.UsedFallback) { ' Showing the most recent output snapshot.' } else { '' }
+                        "<div style='font-family:Consolas,Monaco,monospace;font-size:11px;padding:8px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-warning);border-bottom:1px solid var(--psu-term-border);'>Live output unavailable: $encodedError$snapshotText</div>"
+                    }
+                    elseif (@($rows).Count -eq 0)
+                    {
+                        "<div style='font-family:Consolas,Monaco,monospace;font-size:11px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-muted-fg);'>No job output is available.</div>"
+                    }
+                    else
+                    {
+                        ''
+                    }
+
+                    if ($view -eq 'structured')
+                    {
+                        $i = 0
+                        $structRows = @($rows | ForEach-Object {
+                            $i++
+                            $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
+                            $msgHtml = $_.Message | Convert-PlainTextToHtml
+                            "<tr><td class='$lnClass' style='padding:4px 6px 4px 10px;color:var(--psu-term-muted-fg);text-align:right;user-select:none;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums;'>$i</td><td class='$tsClass' style='padding:4px 10px;color:var(--psu-term-muted-fg);white-space:nowrap;vertical-align:top;'>{0}</td><td style='padding:4px 10px;color:{1};font-weight:600;white-space:nowrap;vertical-align:top;'>{2}</td><td style='padding:4px 10px;color:var(--psu-term-fg);white-space:pre-wrap;vertical-align:top;'>{3}</td></tr>" -f [System.Net.WebUtility]::HtmlEncode($ts), $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($_.Stream), $msgHtml
+                        })
+                        $noticeMarkup + '<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="' + $lnClass + '" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="' + $tsClass + '" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Timestamp</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Stream</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Message</th></tr></thead><tbody>' + ($structRows -join '') + '</tbody></table></div>'
+                    }
+                    else
+                    {
+                        $i = 0
+                        $lines = @($rows | ForEach-Object {
+                            $i++
+                            $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
+                            $msgHtml = $_.Message | Convert-AnsiToHtml
+                            "<div style='display:flex;margin:0 0 4px 0;'><span class='$lnClass' style='$lnStyle'>$i</span><span><span class='$tsClass' style='color:var(--psu-term-muted-fg);'>[{0}]</span> <span style='color:{1};font-weight:600;'>[{2}]</span> <span>{3}</span></span></div>" -f $ts, $_.StreamColor, $_.Stream, $msgHtml
+                        })
+                        $noticeMarkup + '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:var(--psu-term-fg);padding:12px 14px;position:relative;z-index:1;">' + ($lines -join '') + '</div>'
+                    }
+                } $dynJobId $dynToken $dynUrl $dynFallback ([Int32]$dynMaxRows) $dynView $dynEid
+            }
+            catch
+            {
+                $renderError = $_.Exception.Message
+                & $helperModule {
+                    param($jobId, $view, $eid, $errorMessage)
+                    Write-UDPsuComponentLog -Level Error -Resource ('New-UDPsuJobTerminalView:{0}' -f $eid) -Message 'Dynamic terminal rendering failed.' -Properties @{
+                        JobId            = $jobId
+                        ExceptionMessage = $errorMessage
+                        RunspaceStage    = 'Render'
+                        View             = $view
+                    }
+                } $dynJobId $dynView $dynEid $renderError
+                $encodedRenderError = [System.Net.WebUtility]::HtmlEncode($renderError)
+                '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Terminal rendering failed: ' + $encodedRenderError + '</div>'
+            }
         }
         else
         {
-            '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Module unavailable.</div>'
+            $writePsuLog = Microsoft.PowerShell.Core\Get-Command -Name 'Write-PSULog' -ErrorAction SilentlyContinue
+            if ($null -ne $writePsuLog)
+            {
+                try
+                {
+                    Write-PSULog -Level Error -Feature 'App' -Resource ('New-UDPsuJobTerminalView:{0}' -f $dynEid) -Message 'Terminal helper module import failed.' -Properties @{
+                        JobId            = $dynJobId
+                        ExceptionMessage = $moduleError
+                        RunspaceStage    = 'ModuleImport'
+                        View             = $dynView
+                    }
+                }
+                catch
+                {
+                    Microsoft.PowerShell.Utility\Write-Warning -Message ('Failed to write PSU terminal diagnostic: {0}' -f $_.Exception.Message)
+                }
+            }
+            $encodedModuleError = [System.Net.WebUtility]::HtmlEncode($moduleError)
+            '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Terminal helper module unavailable: ' + $encodedModuleError + '</div>'
         }
 
         $refreshedAt = '{0:yyyy-MM-dd HH:mm:ss}' -f [datetime]::Now
@@ -462,7 +518,7 @@ function New-UDPsuJobTerminalView
             $termDynParams = @{
                 Id           = $terminalDynamicId
                 Content      = $makeDynContent
-                ArgumentList = @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId)
+                ArgumentList = @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw))
             }
             if (-not $isTerminalJob -and $AutoRefreshInterval -gt 0)
             {
@@ -478,7 +534,7 @@ function New-UDPsuJobTerminalView
             New-UDElement -Tag 'div' -Id "$ElementId-panel-structured" -Attributes @{
                 style = @{ display = 'none' }
             } -Content {
-                New-UDDynamic -Id $structuredDynamicId -Content $makeDynContent -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId)
+                New-UDDynamic -Id $structuredDynamicId -Content $makeDynContent -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId, $helperModulePath, (, $initialRaw))
             }
         }
 
@@ -500,10 +556,10 @@ function New-UDPsuJobTerminalView
         } -Content {
             New-UDHtml -Markup ($liveIndicator + $statusInner)
             New-UDButton -Variant 'text' -Size 'small' -Icon (New-UDIcon -Icon 'sync') -OnClick {
-                Sync-UDElement -Id $terminalDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId)
+                Sync-UDElement -Id $terminalDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw))
                 if ($resolvedIncludeStructuredTable)
                 {
-                    Sync-UDElement -Id $structuredDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId)
+                    Sync-UDElement -Id $structuredDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId, $helperModulePath, (, $initialRaw))
                 }
             } -Style @{
                 color      = 'var(--psu-term-muted-fg)'
