@@ -90,7 +90,7 @@ browser's `localStorage` and takes precedence over these defaults on later visit
 New-UDPsuJobTerminalView -JobId $job.Id -HideLineNumbers -HideTimestamps
 ```
 
-## Authorization: prefer an app token over -Integrated
+## Authorization: prefer an app token and server URL over -Integrated
 
 When fetching the `$job` passed into these components, prefer an app token via the Management API
 (`Get-PSUJob -Id $jobId -AppToken $token -ComputerName $url`) over `-Integrated`. `-Integrated`
@@ -98,6 +98,12 @@ bypasses PSU's Management API -- and therefore its role/permission checks -- ent
 using it can read any job in the instance regardless of role configuration. An app token, by
 contrast, is bound to whatever role it is assigned, is revocable, and is auditable. Treat
 `-Integrated` as a fallback for quick local setups without a configured token, not the default.
+
+`New-UDPsuJobTerminalView` follows the same connection model for output retrieval. When
+`-UniversalServerUrl` is supplied, it passes that value as `ComputerName` and includes
+`-AppToken` when supplied. When the URL is omitted, it calls `Get-PSUJobOutput -Integrated`;
+the helper module does not discover a URL from `Get-ModuleConfig` or assume a localhost address.
+An app token therefore requires an explicit `-UniversalServerUrl`.
 
 This does not yet achieve fine-grained per-script job scoping -- today the only permission that
 grants job-read access at all (`automation/read`) grants it for every job in the instance, not

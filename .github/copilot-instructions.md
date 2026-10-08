@@ -47,8 +47,9 @@ Read the per-area instruction files before making changes in the relevant area:
 ## PowerShell style
 
 - Use `$null = <expression>` not `<expression> | Out-Null` to suppress output.
-- Prefer splatting over backtick-based line continuation for multi-line calls.
-- Use ASCII-only characters in `.ps1` source files.
+- Use splatting for multi-line command calls. Never use backticks for line continuation.
+- Add a blank line after a standalone closing `}` unless the next line starts with `}`, `)`, `else`, `elseif`, `catch`, or `finally`. Do not add blank lines within `if`/`elseif`/`else` or `try`/`catch`/`finally` chains.
+- Prefer using ASCII-only characters in `.ps1` source files.
 - Follow DSC Community parameter style: `[Parameter()]` attribute, type, and variable name each on their own line with a blank line between parameter declarations.
 - Use explicit .NET types (`[System.String]`, `[System.Boolean]`, etc.).
 - Use `[CmdletBinding()]` and `[OutputType(...)]` on all functions.
@@ -66,4 +67,3 @@ $null = New-Item -Path 'output\agentic' -ItemType Directory -Force
 ```
 
 - Poll the log with `Get-Content output\agentic\test.log -Tail 20` rather than re-running the build.
-

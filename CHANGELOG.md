@@ -5,6 +5,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed `New-UDPsuJobTerminalView` job output retrieval to use the explicitly
+  supplied `UniversalServerUrl` as `ComputerName`, or `Integrated` when no URL
+  is supplied. The component no longer uses `Get-ModuleConfig` or assumes a
+  localhost PSU URL.
+
 ### Added
 
 - Added `New-UDPsuJobHeader` and `New-UDPsuJobTerminalView` public functions

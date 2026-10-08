@@ -89,4 +89,69 @@ Describe 'New-UDPsuJobTerminalView' {
             [int]($meta.DefaultValue.Value) | Should -Be 5
         }
     }
+
+    It 'Should not concatenate strings with the addition operator' {
+        InModuleScope -ScriptBlock {
+            $functionAst = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast
+            $additionExpressions = @(
+                $functionAst.FindAll(
+                    {
+                        param($ast)
+
+                        $ast -is [System.Management.Automation.Language.BinaryExpressionAst] -and
+                        $ast.Operator -eq [System.Management.Automation.Language.TokenKind]::Plus
+                    },
+                    $true
+                )
+            )
+
+            $additionExpressions.Count | Should -Be 0
+        }
+    }
+
+    It 'Should not depend on Get-ModuleConfig or a localhost URL default' {
+        InModuleScope -ScriptBlock {
+            $functionText = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast.Extent.Text
+
+            $functionText | Should -Not -Match '\bGet-ModuleConfig\b'
+            $functionText | Should -Not -Match 'http://localhost:5000'
+        }
+    }
+
+    It 'Should separate completed blocks without splitting conditional or exception chains' {
+        InModuleScope -ScriptBlock {
+            $functionLines = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast.Extent.Text -split '\r?\n'
+            $violations = for ($lineIndex = 0; $lineIndex -lt ($functionLines.Count - 1); $lineIndex++)
+            {
+                if ($functionLines[$lineIndex].Trim() -ne '}')
+                {
+                    continue
+                }
+
+                $nextLine = $functionLines[$lineIndex + 1].Trim()
+                if ($nextLine -match '^(else|elseif|catch|finally)\b' -or $nextLine -match '^[})]')
+                {
+                    continue
+                }
+
+                if ($nextLine -eq '')
+                {
+                    $nextNonEmptyLine = @(
+                        $functionLines[($lineIndex + 2)..($functionLines.Count - 1)] |
+                            Where-Object { $_.Trim() -ne '' } |
+                            Select-Object -First 1
+                    )
+
+                    if (@($nextNonEmptyLine).Count -eq 0 -or $nextNonEmptyLine[0].Trim() -notmatch '^(else|elseif|catch|finally)\b')
+                    {
+                        continue
+                    }
+                }
+
+                $lineIndex + 1
+            }
+
+            @($violations).Count | Should -Be 0
+        }
+    }
 }
