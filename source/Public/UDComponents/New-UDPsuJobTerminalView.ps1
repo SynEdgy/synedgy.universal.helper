@@ -19,13 +19,12 @@ function New-UDPsuJobTerminalView
         The PSU job identifier to render output for.
 
         .PARAMETER AppToken
-        PSU app token used to call Get-PSUJobOutput. If omitted, the call is made without
-        an explicit token (suitable when running inside the PSU dashboard with an ambient
-        connection).
+        PSU app token used with UniversalServerUrl to call Get-PSUJobOutput through the
+        Management API. It is not used when UniversalServerUrl is omitted.
 
         .PARAMETER UniversalServerUrl
-        PSU server URL for Get-PSUJobOutput. Defaults to UniversalServerUrl from module
-        config (via Get-ModuleConfig, when available), then http://localhost:5000.
+        PSU server URL passed to Get-PSUJobOutput as ComputerName. When omitted,
+        Get-PSUJobOutput is called with Integrated.
 
         .PARAMETER MaxRows
         Maximum number of most-recent output rows to render. Use 0 for no limit.
@@ -147,18 +146,30 @@ function New-UDPsuJobTerminalView
     $resolvedAppToken = $AppToken
     $helperModulePath = $MyInvocation.MyCommand.Module.Path
 
-    $configUrl    = if (Get-Command -Name 'Get-ModuleConfig' -ErrorAction SilentlyContinue)
+    $resolvedUrl = if (-not [string]::IsNullOrWhiteSpace($UniversalServerUrl))
     {
-        try { [string](Get-ModuleConfig).UniversalServerUrl } catch { $null }
+        $UniversalServerUrl.TrimEnd('/')
     }
-    $resolvedUrl  = if (-not [string]::IsNullOrWhiteSpace($UniversalServerUrl)) { $UniversalServerUrl.TrimEnd('/') }
-                    elseif (-not [string]::IsNullOrWhiteSpace($configUrl))      { $configUrl.TrimEnd('/') }
-                    else                                                         { 'http://localhost:5000' }
+    else
+    {
+        $null
+    }
 
     $resolvedIncludeStructuredTable = $IncludeStructuredTable.IsPresent
 
     # --- Initial fetch: drives the structured table and status bar ---
-    $initialOutputResult = Get-UDPsuJobOutputWithFallback -JobId $JobId -AppToken $resolvedAppToken -UniversalServerUrl $resolvedUrl -FallbackOutput $JobOutputSnapshot
+    $initialFetchParams = @{
+        JobId          = $JobId
+        AppToken       = $resolvedAppToken
+        FallbackOutput = $JobOutputSnapshot
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($resolvedUrl))
+    {
+        $initialFetchParams['UniversalServerUrl'] = $resolvedUrl
+    }
+
+    $initialOutputResult = Get-UDPsuJobOutputWithFallback @initialFetchParams
     $initialRaw = @($initialOutputResult.OutputRecords)
     if (-not [string]::IsNullOrWhiteSpace($initialOutputResult.ErrorMessage))
     {
@@ -192,13 +203,17 @@ function New-UDPsuJobTerminalView
                 'Error' { 'var(--psu-term-stream-error)' }; 'Warning' { 'var(--psu-term-stream-warning)' }; 'Information' { 'var(--psu-term-stream-information)' }
                 'Verbose' { 'var(--psu-term-stream-verbose)' }; 'Debug' { 'var(--psu-term-stream-debug)' }; Default { 'var(--psu-term-stream-default)' }
             }
+
             "<span style='color:{0};'>{1}:&thinsp;{2}</span>" -f $c, $_.Name, $_.Count
         }
     )
     $statusInner = if (@($statusStreamSpans).Count -gt 0)
     {
-        ($statusStreamSpans -join "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span>") +
-        ("<span style='color:var(--psu-term-border);padding:0 6px;'>|</span><span style='color:var(--psu-term-muted-fg);'>Events:&nbsp;{0}</span>" -f @($initialDisplayRows).Count)
+        '{0}{1}' -f (
+            $statusStreamSpans -join "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span>"
+        ), (
+            "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span><span style='color:var(--psu-term-muted-fg);'>Events:&nbsp;{0}</span>" -f @($initialDisplayRows).Count
+        )
     }
     else
     {
@@ -211,122 +226,132 @@ function New-UDPsuJobTerminalView
     $moduleBase       = $MyInvocation.MyCommand.Module.ModuleBase
     if ($moduleBase)
     {
-        $iconSvg = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ($ElementId + '-icon') -ExtraStyle 'height:26px;width:auto;display:block;' -Theme $Theme
-        $wmSvg   = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ($ElementId + '-wm')   -ExtraStyle 'height:100%;width:auto;'         -Theme $Theme
-        if ($iconSvg) { $svgIconHtml = '<span style="padding:4px 8px 4px 12px;display:flex;align-items:center;">' + $iconSvg + '</span><span style="padding:0 14px 0 0;color:var(--psu-term-fg);font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">TERMINAL</span>' }
-        if ($wmSvg)   { $svgWatermarkHtml = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:65%;pointer-events:none;opacity:0.05;z-index:0;">' + $wmSvg + '</div>' }
+        $iconSvg = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ('{0}-icon' -f $ElementId) -ExtraStyle 'height:26px;width:auto;display:block;' -Theme $Theme
+        $wmSvg   = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ('{0}-wm' -f $ElementId)   -ExtraStyle 'height:100%;width:auto;'         -Theme $Theme
+        if ($iconSvg)
+        {
+            $svgIconHtml = '<span style="padding:4px 8px 4px 12px;display:flex;align-items:center;">{0}</span><span style="padding:0 14px 0 0;color:var(--psu-term-fg);font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">TERMINAL</span>' -f $iconSvg
+        }
+
+        if ($wmSvg)
+        {
+            $svgWatermarkHtml = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);height:65%;pointer-events:none;opacity:0.05;z-index:0;">{0}</div>' -f $wmSvg
+        }
     }
+
     $iconSpan = if ($svgIconHtml) { $svgIconHtml } else { '<span style="padding:0 14px;color:var(--psu-term-accent);font-family:Consolas,Monaco,monospace;font-size:14px;font-weight:700;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">&gt;_</span>' }
 
     # --- Title bar ---
     if ($resolvedIncludeStructuredTable)
     {
-        $onClickTerminal = (
-            "document.getElementById('" + $ElementId + "-panel-terminal').style.display='';" +
-            "document.getElementById('" + $ElementId + "-panel-structured').style.display='none';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.background='var(--psu-term-tab-active-bg)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.color='var(--psu-term-fg)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.borderBottom='2px solid var(--psu-term-accent)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.background='transparent';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.color='var(--psu-term-muted-fg)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.borderBottom='2px solid transparent';"
-        )
-        $onClickStructured = (
-            "document.getElementById('" + $ElementId + "-panel-structured').style.display='';" +
-            "document.getElementById('" + $ElementId + "-panel-terminal').style.display='none';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.background='var(--psu-term-tab-active-bg)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.color='var(--psu-term-fg)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-structured').style.borderBottom='2px solid var(--psu-term-accent)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.background='transparent';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.color='var(--psu-term-muted-fg)';" +
-            "document.getElementById('" + $ElementId + "-cbtn-terminal').style.borderBottom='2px solid transparent';"
-        )
+        $onClickTerminal = @(
+            "document.getElementById('{0}-panel-terminal').style.display='';" -f $ElementId
+            "document.getElementById('{0}-panel-structured').style.display='none';" -f $ElementId
+            "document.getElementById('{0}-cbtn-terminal').style.background='var(--psu-term-tab-active-bg)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-terminal').style.color='var(--psu-term-fg)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-terminal').style.borderBottom='2px solid var(--psu-term-accent)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-structured').style.background='transparent';" -f $ElementId
+            "document.getElementById('{0}-cbtn-structured').style.color='var(--psu-term-muted-fg)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-structured').style.borderBottom='2px solid transparent';" -f $ElementId
+        ) -join ''
+        $onClickStructured = @(
+            "document.getElementById('{0}-panel-structured').style.display='';" -f $ElementId
+            "document.getElementById('{0}-panel-terminal').style.display='none';" -f $ElementId
+            "document.getElementById('{0}-cbtn-structured').style.background='var(--psu-term-tab-active-bg)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-structured').style.color='var(--psu-term-fg)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-structured').style.borderBottom='2px solid var(--psu-term-accent)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-terminal').style.background='transparent';" -f $ElementId
+            "document.getElementById('{0}-cbtn-terminal').style.color='var(--psu-term-muted-fg)';" -f $ElementId
+            "document.getElementById('{0}-cbtn-terminal').style.borderBottom='2px solid transparent';" -f $ElementId
+        ) -join ''
     # JS tooltip helper - appends to body to bypass overflow:hidden on parent containers
-    $tipShow = "var _t=document.createElement('div');_t.id='psu-tip';_t.textContent=this.dataset.tip;" +
-               "_t.style.cssText='position:fixed;background:var(--psu-term-tooltip-bg);color:var(--psu-term-tooltip-fg);font-family:Consolas,Monaco,monospace;font-size:11px;padding:4px 8px;border-radius:4px;pointer-events:none;z-index:99999;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);';" +
-               "document.body.appendChild(_t);" +
-               "var r=this.getBoundingClientRect();" +
-               "_t.style.left=(r.left+r.width/2-_t.offsetWidth/2)+'px';" +
-               "_t.style.top=(r.top-_t.offsetHeight-6)+'px';"
+    $tipShow = @(
+        "var _t=document.createElement('div');_t.id='psu-tip';_t.textContent=this.dataset.tip;"
+        "_t.style.cssText='position:fixed;background:var(--psu-term-tooltip-bg);color:var(--psu-term-tooltip-fg);font-family:Consolas,Monaco,monospace;font-size:11px;padding:4px 8px;border-radius:4px;pointer-events:none;z-index:99999;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);';"
+        'document.body.appendChild(_t);'
+        'var r=this.getBoundingClientRect();'
+        "_t.style.left=(r.left+r.width/2-_t.offsetWidth/2)+'px';"
+        "_t.style.top=(r.top-_t.offsetHeight-6)+'px';"
+    ) -join ''
     $tipHide = "var _t=document.getElementById('psu-tip');if(_t)_t.remove();"
 
-    $lnToggleJs = (
-        "var p1=document.getElementById('" + $ElementId + "-panel-terminal');" +
-        "var p2=document.getElementById('" + $ElementId + "-panel-structured');" +
-        "if(p1)p1.classList.toggle('" + $ElementId + "-ln-hidden');" +
-        "if(p2)p2.classList.toggle('" + $ElementId + "-ln-hidden');" +
-        "var off=p1&&p1.classList.contains('" + $ElementId + "-ln-hidden');" +
-        "this.style.opacity=off?'0.35':'1';" +
-        "try{localStorage.setItem('" + $ElementId + "-ln',off?'0':'1')}catch(e){}"
-    )
-    $lnToggleBtn = (
-        '<button id="' + $ElementId + '-ln-toggle" onclick="' + $lnToggleJs + '" data-tip="Toggle line numbers" ' +
-        'onmouseenter="' + $tipShow + '" onmouseleave="' + $tipHide + '" ' +
-        'style="padding:4px 10px;background:transparent;border:none;cursor:pointer;' +
-        'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:700;' +
-        'display:flex;align-items:center;outline:none;line-height:1;" ' +
+    $lnToggleJs = @(
+        "var p1=document.getElementById('{0}-panel-terminal');" -f $ElementId
+        "var p2=document.getElementById('{0}-panel-structured');" -f $ElementId
+        "if(p1)p1.classList.toggle('{0}-ln-hidden');" -f $ElementId
+        "if(p2)p2.classList.toggle('{0}-ln-hidden');" -f $ElementId
+        "var off=p1&&p1.classList.contains('{0}-ln-hidden');" -f $ElementId
+        "this.style.opacity=off?'0.35':'1';"
+        "try{{localStorage.setItem('{0}-ln',off?'0':'1')}}catch(e){{}}" -f $ElementId
+    ) -join ''
+    $lnToggleBtn = @(
+        '<button id="{0}-ln-toggle" onclick="{1}" data-tip="Toggle line numbers" ' -f $ElementId, $lnToggleJs
+        'onmouseenter="{0}" onmouseleave="{1}" ' -f $tipShow, $tipHide
+        'style="padding:4px 10px;background:transparent;border:none;cursor:pointer;'
+        'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:700;'
+        'display:flex;align-items:center;outline:none;line-height:1;" '
         'onmouseover="this.style.color=''var(--psu-term-fg)''" onmouseout="this.style.color=''var(--psu-term-muted-fg)''">#</button>'
-    )
-    $tsToggleJs = (
-        "var p1=document.getElementById('" + $ElementId + "-panel-terminal');" +
-        "var p2=document.getElementById('" + $ElementId + "-panel-structured');" +
-        "if(p1)p1.classList.toggle('" + $ElementId + "-ts-hidden');" +
-        "if(p2)p2.classList.toggle('" + $ElementId + "-ts-hidden');" +
-        "var off=p1&&p1.classList.contains('" + $ElementId + "-ts-hidden');" +
-        "this.style.opacity=off?'0.35':'1';" +
-        "try{localStorage.setItem('" + $ElementId + "-ts',off?'0':'1')}catch(e){}"
-    )
-    $tsToggleBtn = (
-        '<button id="' + $ElementId + '-ts-toggle" onclick="' + $tsToggleJs + '" data-tip="Toggle timestamps" ' +
-        'onmouseenter="' + $tipShow + '" onmouseleave="' + $tipHide + '" ' +
-        'style="padding:4px 8px;background:transparent;border:none;cursor:pointer;' +
-        'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;' +
-        'display:flex;align-items:center;outline:none;line-height:1;" ' +
+    ) -join ''
+    $tsToggleJs = @(
+        "var p1=document.getElementById('{0}-panel-terminal');" -f $ElementId
+        "var p2=document.getElementById('{0}-panel-structured');" -f $ElementId
+        "if(p1)p1.classList.toggle('{0}-ts-hidden');" -f $ElementId
+        "if(p2)p2.classList.toggle('{0}-ts-hidden');" -f $ElementId
+        "var off=p1&&p1.classList.contains('{0}-ts-hidden');" -f $ElementId
+        "this.style.opacity=off?'0.35':'1';"
+        "try{{localStorage.setItem('{0}-ts',off?'0':'1')}}catch(e){{}}" -f $ElementId
+    ) -join ''
+    $tsToggleBtn = @(
+        '<button id="{0}-ts-toggle" onclick="{1}" data-tip="Toggle timestamps" ' -f $ElementId, $tsToggleJs
+        'onmouseenter="{0}" onmouseleave="{1}" ' -f $tipShow, $tipHide
+        'style="padding:4px 8px;background:transparent;border:none;cursor:pointer;'
+        'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;'
+        'display:flex;align-items:center;outline:none;line-height:1;" '
         'onmouseover="this.style.color=''var(--psu-term-fg)''" onmouseout="this.style.color=''var(--psu-term-muted-fg)''">&#128336;</button>'
-    )
-    $toggleBtns = '<div style="margin-left:auto;display:flex;align-items:center;">' + $lnToggleBtn + $tsToggleBtn + '</div>'
+    ) -join ''
+    $toggleBtns = '<div style="margin-left:auto;display:flex;align-items:center;">{0}{1}</div>' -f $lnToggleBtn, $tsToggleBtn
     # Restore toggle states on initial render: an explicit prior user choice in localStorage
     # always wins; otherwise fall back to the -HideLineNumbers/-HideTimestamps defaults.
     $showLnDefaultJs = if ($HideLineNumbers.IsPresent) { 'false' } else { 'true' }
     $showTsDefaultJs = if ($HideTimestamps.IsPresent) { 'false' } else { 'true' }
-    $lnRestoreJs = (
-        "(function(){" +
-        "try{" +
-        "var p1=document.getElementById('" + $ElementId + "-panel-terminal');" +
-        "var p2=document.getElementById('" + $ElementId + "-panel-structured');" +
-        "var lnStored=localStorage.getItem('" + $ElementId + "-ln');" +
-        "var lnVisible=(lnStored===null)?" + $showLnDefaultJs + ":(lnStored!=='0');" +
-        "if(!lnVisible){" +
-        "if(p1)p1.classList.add('" + $ElementId + "-ln-hidden');" +
-        "if(p2)p2.classList.add('" + $ElementId + "-ln-hidden');" +
-        "var b=document.getElementById('" + $ElementId + "-ln-toggle');if(b)b.style.opacity='0.35';}" +
-        "var tsStored=localStorage.getItem('" + $ElementId + "-ts');" +
-        "var tsVisible=(tsStored===null)?" + $showTsDefaultJs + ":(tsStored!=='0');" +
-        "if(!tsVisible){" +
-        "if(p1)p1.classList.add('" + $ElementId + "-ts-hidden');" +
-        "if(p2)p2.classList.add('" + $ElementId + "-ts-hidden');" +
-        "var b=document.getElementById('" + $ElementId + "-ts-toggle');if(b)b.style.opacity='0.35';}" +
-        "}catch(e){}})();"
-    )
+    $lnRestoreJs = @(
+        '(function(){'
+        'try{'
+        "var p1=document.getElementById('{0}-panel-terminal');" -f $ElementId
+        "var p2=document.getElementById('{0}-panel-structured');" -f $ElementId
+        "var lnStored=localStorage.getItem('{0}-ln');" -f $ElementId
+        "var lnVisible=(lnStored===null)?{0}:(lnStored!=='0');" -f $showLnDefaultJs
+        'if(!lnVisible){'
+        "if(p1)p1.classList.add('{0}-ln-hidden');" -f $ElementId
+        "if(p2)p2.classList.add('{0}-ln-hidden');" -f $ElementId
+        "var b=document.getElementById('{0}-ln-toggle');if(b)b.style.opacity='0.35';}}" -f $ElementId
+        "var tsStored=localStorage.getItem('{0}-ts');" -f $ElementId
+        "var tsVisible=(tsStored===null)?{0}:(tsStored!=='0');" -f $showTsDefaultJs
+        'if(!tsVisible){'
+        "if(p1)p1.classList.add('{0}-ts-hidden');" -f $ElementId
+        "if(p2)p2.classList.add('{0}-ts-hidden');" -f $ElementId
+        "var b=document.getElementById('{0}-ts-toggle');if(b)b.style.opacity='0.35';}}" -f $ElementId
+        '}catch(e){}})();'
+    ) -join ''
 
-        $titleBarHtml = (
-            '<div style="display:flex;align-items:stretch;height:100%;width:100%;">' +
-            $iconSpan +
-            '<button role="tab" id="' + $ElementId + '-cbtn-terminal" onclick="' + $onClickTerminal + '" style="padding:8px 16px;background:var(--psu-term-tab-active-bg);color:var(--psu-term-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid var(--psu-term-accent);outline:none;">Output</button>' +
-            '<button role="tab" id="' + $ElementId + '-cbtn-structured" onclick="' + $onClickStructured + '" style="padding:8px 16px;background:transparent;color:var(--psu-term-muted-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid transparent;outline:none;">Structured Events</button>' +
-            $toggleBtns +
+        $titleBarHtml = @(
+            '<div style="display:flex;align-items:stretch;height:100%;width:100%;">'
+            $iconSpan
+            '<button role="tab" id="{0}-cbtn-terminal" onclick="{1}" style="padding:8px 16px;background:var(--psu-term-tab-active-bg);color:var(--psu-term-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid var(--psu-term-accent);outline:none;">Output</button>' -f $ElementId, $onClickTerminal
+            '<button role="tab" id="{0}-cbtn-structured" onclick="{1}" style="padding:8px 16px;background:transparent;color:var(--psu-term-muted-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid transparent;outline:none;">Structured Events</button>' -f $ElementId, $onClickStructured
+            $toggleBtns
             '</div>'
-        )
+        ) -join ''
     }
     else
     {
-        $titleBarHtml = (
-            '<div style="display:flex;align-items:center;height:100%;width:100%;">' +
-            $iconSpan +
-            '<span style="color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:12px;padding:0 12px;display:flex;align-items:center;">Output</span>' +
-            $toggleBtns +
+        $titleBarHtml = @(
+            '<div style="display:flex;align-items:center;height:100%;width:100%;">'
+            $iconSpan
+            '<span style="color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:12px;padding:0 12px;display:flex;align-items:center;">Output</span>'
+            $toggleBtns
             '</div>'
-        )
+        ) -join ''
     }
 
     if (-not $PSCmdlet.ShouldProcess($JobId, 'Render PSU job terminal view'))
@@ -365,6 +390,7 @@ function New-UDPsuJobTerminalView
             {
                 $dynModulePath
             }
+
             $helperModule = @(
                 Microsoft.PowerShell.Core\Import-Module -Name $moduleTarget -PassThru -ErrorAction Stop
             )[0]
@@ -381,7 +407,18 @@ function New-UDPsuJobTerminalView
                 & $helperModule {
                     param($jobId, $token, $url, $fallback, $max, $view, $eid)
                     $logResource = 'New-UDPsuJobTerminalView:{0}' -f $eid
-                    $outputResult = Get-UDPsuJobOutputWithFallback -JobId $jobId -AppToken $token -UniversalServerUrl $url -FallbackOutput $fallback
+                    $fetchParams = @{
+                        JobId          = $jobId
+                        AppToken       = $token
+                        FallbackOutput = $fallback
+                    }
+
+                    if (-not [string]::IsNullOrWhiteSpace($url))
+                    {
+                        $fetchParams['UniversalServerUrl'] = $url
+                    }
+
+                    $outputResult = Get-UDPsuJobOutputWithFallback @fetchParams
                     if (-not [string]::IsNullOrWhiteSpace($outputResult.ErrorMessage))
                     {
                         Write-UDPsuComponentLog -Level Warning -Resource $logResource -Message 'Dynamic live job output fetch failed.' -Properties @{
@@ -395,8 +432,8 @@ function New-UDPsuJobTerminalView
 
                     $rows = @($outputResult.OutputRecords | Sort-Object -Property Timestamp | ConvertFrom-PsuJobOutputEntry)
                     if ($max -gt 0) { $rows = @($rows | Select-Object -Last $max) }
-                    $lnClass = 'ln-' + $eid
-                    $tsClass = 'ts-' + $eid
+                    $lnClass = 'ln-{0}' -f $eid
+                    $tsClass = 'ts-{0}' -f $eid
                     $lnStyle = 'color:var(--psu-term-muted-fg);min-width:3ch;text-align:right;margin-right:12px;user-select:none;flex-shrink:0;font-variant-numeric:tabular-nums;'
                     $noticeMarkup = if (-not [string]::IsNullOrWhiteSpace($outputResult.ErrorMessage))
                     {
@@ -422,7 +459,7 @@ function New-UDPsuJobTerminalView
                             $msgHtml = $_.Message | Convert-PlainTextToHtml
                             "<tr><td class='$lnClass' style='padding:4px 6px 4px 10px;color:var(--psu-term-muted-fg);text-align:right;user-select:none;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums;'>$i</td><td class='$tsClass' style='padding:4px 10px;color:var(--psu-term-muted-fg);white-space:nowrap;vertical-align:top;'>{0}</td><td style='padding:4px 10px;color:{1};font-weight:600;white-space:nowrap;vertical-align:top;'>{2}</td><td style='padding:4px 10px;color:var(--psu-term-fg);white-space:pre-wrap;vertical-align:top;'>{3}</td></tr>" -f [System.Net.WebUtility]::HtmlEncode($ts), $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($_.Stream), $msgHtml
                         })
-                        $noticeMarkup + '<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="' + $lnClass + '" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="' + $tsClass + '" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Timestamp</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Stream</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Message</th></tr></thead><tbody>' + ($structRows -join '') + '</tbody></table></div>'
+                        '{0}<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="{1}" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="{2}" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Timestamp</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Stream</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">Message</th></tr></thead><tbody>{3}</tbody></table></div>' -f $noticeMarkup, $lnClass, $tsClass, ($structRows -join '')
                     }
                     else
                     {
@@ -433,7 +470,7 @@ function New-UDPsuJobTerminalView
                             $msgHtml = $_.Message | Convert-AnsiToHtml
                             "<div style='display:flex;margin:0 0 4px 0;'><span class='$lnClass' style='$lnStyle'>$i</span><span><span class='$tsClass' style='color:var(--psu-term-muted-fg);'>[{0}]</span> <span style='color:{1};font-weight:600;'>[{2}]</span> <span>{3}</span></span></div>" -f $ts, $_.StreamColor, $_.Stream, $msgHtml
                         })
-                        $noticeMarkup + '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:var(--psu-term-fg);padding:12px 14px;position:relative;z-index:1;">' + ($lines -join '') + '</div>'
+                        '{0}<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:var(--psu-term-fg);padding:12px 14px;position:relative;z-index:1;">{1}</div>' -f $noticeMarkup, ($lines -join '')
                     }
                 } $dynJobId $dynToken $dynUrl $dynFallback ([Int32]$dynMaxRows) $dynView $dynEid
             }
@@ -449,8 +486,9 @@ function New-UDPsuJobTerminalView
                         View             = $view
                     }
                 } $dynJobId $dynView $dynEid $renderError
+
                 $encodedRenderError = [System.Net.WebUtility]::HtmlEncode($renderError)
-                '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Terminal rendering failed: ' + $encodedRenderError + '</div>'
+                '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Terminal rendering failed: {0}</div>' -f $encodedRenderError
             }
         }
         else
@@ -472,12 +510,13 @@ function New-UDPsuJobTerminalView
                     Microsoft.PowerShell.Utility\Write-Warning -Message ('Failed to write PSU terminal diagnostic: {0}' -f $_.Exception.Message)
                 }
             }
+
             $encodedModuleError = [System.Net.WebUtility]::HtmlEncode($moduleError)
-            '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Terminal helper module unavailable: ' + $encodedModuleError + '</div>'
+            '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">Terminal helper module unavailable: {0}</div>' -f $encodedModuleError
         }
 
         $refreshedAt = '{0:yyyy-MM-dd HH:mm:ss}' -f [datetime]::Now
-        New-UDHtml -Markup ($markup + "<div style='font-family:Consolas,Monaco,monospace;font-size:10px;color:var(--psu-term-muted-fg);padding:2px 14px 4px;background:var(--psu-term-bg);'>fetched $refreshedAt</div>")
+        New-UDHtml -Markup ('{0}<div style=''font-family:Consolas,Monaco,monospace;font-size:10px;color:var(--psu-term-muted-fg);padding:2px 14px 4px;background:var(--psu-term-bg);''>fetched {1}</div>' -f $markup, $refreshedAt)
     }
 
     New-UDElement -Tag 'div' -Id $ElementId -Attributes @{
@@ -495,9 +534,11 @@ function New-UDPsuJobTerminalView
         # auto-refreshing dynamic panels below) since New-UDHtml's dangerouslySetInnerHTML
         # would otherwise reset it on every refresh.
         $themeStyleBlock = Get-UDPsuJobThemeStyleBlock -ElementId $ElementId -Theme $Theme -CustomCss $CustomCss
-        $lnCss = '.' + $ElementId + '-ln-hidden .ln-' + $ElementId + ' { display:none !important; }' +
-                 '.' + $ElementId + '-ts-hidden .ts-' + $ElementId + ' { display:none !important; }'
-        New-UDHtml -Markup ($themeStyleBlock + '<style>' + $lnCss + '</style><script>' + $lnRestoreJs + '</script>')
+        $lnCss = @(
+            '.{0}-ln-hidden .ln-{0} {{ display:none !important; }}' -f $ElementId
+            '.{0}-ts-hidden .ts-{0} {{ display:none !important; }}' -f $ElementId
+        ) -join ''
+        New-UDHtml -Markup ('{0}<style>{1}</style><script>{2}</script>' -f $themeStyleBlock, $lnCss, $lnRestoreJs)
 
         # Title bar
         New-UDElement -Tag 'div' -Attributes @{
@@ -520,11 +561,13 @@ function New-UDPsuJobTerminalView
                 Content      = $makeDynContent
                 ArgumentList = @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw))
             }
+
             if (-not $isTerminalJob -and $AutoRefreshInterval -gt 0)
             {
                 $termDynParams['AutoRefresh']         = $true
                 $termDynParams['AutoRefreshInterval'] = $AutoRefreshInterval
             }
+
             New-UDDynamic @termDynParams
         }
 
@@ -554,7 +597,7 @@ function New-UDPsuJobTerminalView
                 alignItems   = 'center'
             }
         } -Content {
-            New-UDHtml -Markup ($liveIndicator + $statusInner)
+            New-UDHtml -Markup ('{0}{1}' -f $liveIndicator, $statusInner)
             New-UDButton -Variant 'text' -Size 'small' -Icon (New-UDIcon -Icon 'sync') -OnClick {
                 Sync-UDElement -Id $terminalDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw))
                 if ($resolvedIncludeStructuredTable)
