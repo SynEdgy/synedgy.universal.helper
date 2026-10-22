@@ -5,7 +5,8 @@ function Get-ModuleApiEndpoint
         Retrieves the API endpoint for the current module.
 
     .DESCRIPTION
-        This function retrieves the API endpoint metadata for a specified service by getting the public functions of the module.
+        Imports the specified module into the current runspace, then retrieves API endpoint
+        metadata from its exported public functions.
 
     .EXAMPLE
         Get-ModuleApiEndpoint
@@ -38,9 +39,14 @@ function Get-ModuleApiEndpoint
         $ApiPrefix
     )
 
-    # TODO: Load module in Thread and process it there (once done the thread is closed and DLL handles freed)
-    # $thread = [powershell]::Create([System.Management.Automation.RunspaceMode]::CurrentRunspace)
-    $apiModule = Get-Module $Module -ErrorAction Stop
+    $importModuleParameters = @{
+        FullyQualifiedName = $Module
+        Global             = $true
+        PassThru           = $true
+        ErrorAction        = 'Stop'
+    }
+    $apiModule = Import-Module @importModuleParameters
+
     Write-Verbose -Message ('Module: {0} Version: {1}' -f $apiModule.Name, $apiModule.Version)
     $endpoints = $apiModule.ExportedFunctions.Values.Where{
         $_.ScriptBlock.Attributes.Where{

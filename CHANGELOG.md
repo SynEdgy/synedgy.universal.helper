@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed `Get-ModuleApiEndpoint` to import the target module into the current
+  runspace before discovering attributed endpoint functions, so
+  `Import-PSUEndpoint` no longer requires the consuming resource file to import
+  the endpoint module separately.
 - Changed `New-UDPsuJobTerminalView` job output retrieval to use the explicitly
   supplied `UniversalServerUrl` as `ComputerName`, or `Integrated` when no URL
   is supplied. The component no longer uses `Get-ModuleConfig` or assumes a
