@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `Resolve-PSULocalizationResource` and `Get-PSULocalizedData` for resolving
+  and merging data-only PSD1 localization resources stored in culture folders
+  directly below a consuming module's base directory.
+- Added two-layer caching and forced reload support to `Get-PSULocalizedData`. Merged strings
+  are cached in the current module runspace first, with an optional app-wide
+  synchronized `$Cache:` hashtable allowing PSU apps to share values across runspaces.
 - Added `New-UDPsuJobHeader` and `New-UDPsuJobTerminalView` public functions
   under `UDComponents`, providing reusable Universal Dashboard components to
   render a PSU job summary header and a terminal-style job output view.

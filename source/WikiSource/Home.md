@@ -10,6 +10,8 @@ A bunch of PowerShell Universal (PSU) helpers to make your experience more produ
   PSU REST API endpoints with `[APIEndpoint()]` and `Import-PSUEndpoint`.
 - [AI Tool Attribute](AI-Tool-Attribute) - declaratively expose module functions as PSU AI
   tools (MCP) with `[AiTool()]` and `Import-PSUAiTool`.
+- [Localization](Localization) - module-root culture resources, culture resolution, and
+  merged data-only PSD1 string dictionaries.
 - [PSU Platform Notes](PSU-Platform-Notes) - known PowerShell Universal platform behaviors and
   gotchas worth knowing when building on top of this module or consuming PSU apps.
 
