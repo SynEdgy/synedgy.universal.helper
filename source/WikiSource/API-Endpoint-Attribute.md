@@ -33,15 +33,20 @@ Then, in the consuming module's `.universal/endpoints.ps1` resource file, a sing
 and registers every `[APIEndpoint()]`-decorated function in the module:
 
 ```powershell
-Import-Module -Name synedgy.universal.helper, PSUConfig
+Import-Module -Name synedgy.universal.helper
 Import-PSUEndpoint -Module PSUConfig -Environment 'PSUConfig' -ApiPrefix 'api' -Authentication:$false
 ```
 
-`Import-PSUEndpoint` uses `Get-ModuleApiEndpoint` to scan the module's exported functions for the
-`APIEndpoint` attribute, builds a wrapper scriptblock per function via
+`Import-PSUEndpoint` uses `Get-ModuleApiEndpoint` to import the target module into the current
+configuration runspace and scan its exported functions for the `APIEndpoint` attribute. It then
+builds a wrapper scriptblock per function via
 `Get-ModuleApiEndpointScriptblock`, and calls `New-PSUEndpoint -Endpoint {scriptblock} ...` for
 each one -- no separate PSU Script resource is required, since `New-PSUEndpoint` accepts an inline
 scriptblock directly.
+
+The target module must still be available in the PSU environment selected for endpoint execution.
+Automatic import here ensures discovery during resource configuration; it does not replace the
+environment's module preload configuration for endpoint runspaces.
 
 ## `APIEndpoint` attribute properties
 
