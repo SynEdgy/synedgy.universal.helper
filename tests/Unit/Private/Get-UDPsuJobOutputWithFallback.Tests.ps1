@@ -28,7 +28,7 @@ Describe 'Get-UDPsuJobOutputWithFallback' {
     BeforeAll {
         function global:Get-PSUJobOutput
         {
-            param($JobId, $AsObject, $ComputerName, $AppToken)
+            param($JobId, $AsObject, $ComputerName, $AppToken, $Integrated, $ErrorAction)
         }
     }
 
@@ -50,6 +50,56 @@ Describe 'Get-UDPsuJobOutputWithFallback' {
             $result.OutputRecords[0].Message | Should -Be 'live output'
             $result.UsedFallback | Should -BeFalse
             $result.ErrorMessage | Should -BeNullOrEmpty
+        }
+    }
+
+    It 'Should use ComputerName and AppToken for a Management API request' {
+        Mock -CommandName Get-PSUJobOutput -MockWith {
+            [PSCustomObject]@{ Message = 'live output' }
+        }
+
+        InModuleScope -ScriptBlock {
+            $null = Get-UDPsuJobOutputWithFallback -JobId 10494 -AppToken 'test-token' -UniversalServerUrl 'https://psu.example.test/'
+        }
+
+        Should -Invoke -CommandName Get-PSUJobOutput -Exactly -Times 1 -Scope It -ParameterFilter {
+            $JobId -eq 10494 -and
+            $AsObject -eq $true -and
+            $ComputerName -eq 'https://psu.example.test' -and
+            $AppToken -eq 'test-token' -and
+            -not $Integrated
+        }
+    }
+
+    It 'Should use ComputerName without AppToken when only a URL is supplied' {
+        Mock -CommandName Get-PSUJobOutput -MockWith {
+            [PSCustomObject]@{ Message = 'live output' }
+        }
+
+        InModuleScope -ScriptBlock {
+            $null = Get-UDPsuJobOutputWithFallback -JobId 10494 -UniversalServerUrl 'https://psu.example.test'
+        }
+
+        Should -Invoke -CommandName Get-PSUJobOutput -Exactly -Times 1 -Scope It -ParameterFilter {
+            $ComputerName -eq 'https://psu.example.test' -and
+            -not $AppToken -and
+            -not $Integrated
+        }
+    }
+
+    It 'Should use Integrated when no URL is supplied' {
+        Mock -CommandName Get-PSUJobOutput -MockWith {
+            [PSCustomObject]@{ Message = 'live output' }
+        }
+
+        InModuleScope -ScriptBlock {
+            $null = Get-UDPsuJobOutputWithFallback -JobId 10494 -AppToken 'unused-token'
+        }
+
+        Should -Invoke -CommandName Get-PSUJobOutput -Exactly -Times 1 -Scope It -ParameterFilter {
+            $Integrated -eq $true -and
+            -not $ComputerName -and
+            -not $AppToken
         }
     }
 

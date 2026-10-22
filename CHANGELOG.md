@@ -54,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+
+- Changed `New-UDPsuJobTerminalView` job output retrieval to use the explicitly
+  supplied `UniversalServerUrl` as `ComputerName`, or `Integrated` when no URL
+  is supplied. The component no longer uses `Get-ModuleConfig` or assumes a
+  localhost PSU URL.
 - `ConvertFrom-PsuJobOutputEntry`'s `StreamColor` property now returns a CSS
   `var(--psu-term-stream-*)` reference instead of a literal hex color, so job
   output stream coloring follows the light/dark theme instead of being fixed to

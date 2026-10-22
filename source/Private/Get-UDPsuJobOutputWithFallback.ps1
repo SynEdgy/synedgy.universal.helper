@@ -17,7 +17,9 @@ function Get-UDPsuJobOutputWithFallback
         Optional PSU app token used for the live output request.
 
         .PARAMETER UniversalServerUrl
-        PSU server URL used for the live output request.
+        Optional PSU server URL used for the live output request. When supplied,
+        Get-PSUJobOutput is called through the Management API with ComputerName and
+        the optional AppToken. When omitted, Get-PSUJobOutput is called with Integrated.
 
         .PARAMETER FallbackOutput
         Pre-fetched output records to use when live output is unavailable.
@@ -37,7 +39,7 @@ function Get-UDPsuJobOutputWithFallback
         [System.String]
         $AppToken,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter()]
         [System.String]
         $UniversalServerUrl,
 
@@ -52,14 +54,22 @@ function Get-UDPsuJobOutputWithFallback
     try
     {
         $fetchParams = @{
-            JobId        = $JobId
-            AsObject     = $true
-            ComputerName = $UniversalServerUrl
-            ErrorAction  = 'Stop'
+            JobId       = $JobId
+            AsObject    = $true
+            ErrorAction = 'Stop'
         }
-        if (-not [System.String]::IsNullOrWhiteSpace($AppToken))
+
+        if (-not [System.String]::IsNullOrWhiteSpace($UniversalServerUrl))
         {
-            $fetchParams['AppToken'] = $AppToken
+            $fetchParams['ComputerName'] = $UniversalServerUrl.TrimEnd('/')
+            if (-not [System.String]::IsNullOrWhiteSpace($AppToken))
+            {
+                $fetchParams['AppToken'] = $AppToken
+            }
+        }
+        else
+        {
+            $fetchParams['Integrated'] = $true
         }
 
         $outputRecords = @(Get-PSUJobOutput @fetchParams)
