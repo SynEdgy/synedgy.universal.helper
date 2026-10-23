@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $script:moduleName = 'synedgy.universal.helper'
     $script:projectPath = $PSScriptRoot
 

@@ -1,4 +1,4 @@
-@{
+﻿@{
     TerminalLabel             = 'TERMINAL'
     OutputTab                 = 'Sortie'
     StructuredEventsTab       = 'Événements structurés'

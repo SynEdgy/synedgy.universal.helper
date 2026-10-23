@@ -1,4 +1,4 @@
-function New-UDLanguageSelector
+﻿function New-UDLanguageSelector
 {
     <#
         .SYNOPSIS

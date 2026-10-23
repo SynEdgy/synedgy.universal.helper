@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $script:moduleName = 'synedgy.universal.helper'
 
     if (-not (Get-Module -Name $script:moduleName -ListAvailable))
@@ -49,8 +49,8 @@ Describe 'Get-PSULanguageDisplayName' {
 
     It 'Should return an unknown language identifier unchanged' {
         InModuleScope -ScriptBlock {
-            Get-PSULanguageDisplayName -Language 'custom-language' |
-                Should -Be 'custom-language'
+            Get-PSULanguageDisplayName -Language 'not_a_culture' |
+                Should -Be 'not_a_culture'
         }
     }
 }

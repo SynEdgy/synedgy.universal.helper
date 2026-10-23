@@ -24,5 +24,7 @@ applyTo: "source/**/*.ps1,source/**/*.psd1,tests/**/*.ps1"
 - Resource files may be grouped in subfolders beneath each culture directory.
   Preserve root-level lookup priority, and keep each bundle filename unique
   within a culture to avoid ambiguous recursive discovery.
+- Save PowerShell files containing non-ASCII localized text as UTF-8 with BOM
+  so Windows PowerShell 5.1 does not decode translations as ANSI.
 - Ensure module build configuration copies every culture directory containing
   localization resources.

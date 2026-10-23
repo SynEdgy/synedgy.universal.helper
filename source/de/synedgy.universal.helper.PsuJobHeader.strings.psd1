@@ -1,4 +1,4 @@
-@{
+﻿@{
     NotAvailable     = 'k. A.'
     Copied           = 'Kopiert!'
     CopyJobIdTooltip = 'Klicken, um die Job-ID zu kopieren'
