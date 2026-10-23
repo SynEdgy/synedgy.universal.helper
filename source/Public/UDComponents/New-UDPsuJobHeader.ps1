@@ -35,6 +35,14 @@ function New-UDPsuJobHeader
         them. For example, override a single color variable:
         '#psu-job-header-123 { --psu-term-accent: #ff00ff; }'.
 
+        .PARAMETER Language
+        Requested language for the component-owned job-header resource. Defaults
+        to English for backward compatibility.
+
+        .PARAMETER DefaultUILanguage
+        Module-configured default language used before the mandatory English
+        fallback.
+
         .EXAMPLE
         $job = Get-PSUJob -Id $id -AppToken $token
         New-UDPsuJobHeader -Job $job
@@ -68,19 +76,34 @@ function New-UDPsuJobHeader
 
         [Parameter()]
         [System.String]
-        $CustomCss = ''
+        $CustomCss = '',
+
+        [Parameter()]
+        [System.String]
+        $Language = 'en',
+
+        [Parameter()]
+        [System.String]
+        $DefaultUILanguage = 'en'
     )
+
+    $localizedDataParameters = @{
+        Name              = 'synedgy.universal.helper.PsuJobHeader'
+        Language          = $Language
+        DefaultUILanguage = $DefaultUILanguage
+    }
+    $localizedData = Get-PSUComponentLocalizedData @localizedDataParameters
 
     $formatDt = {
         param($dt)
-        if ($dt -and ([datetime]$dt).Year -gt 1) { '{0:yyyy-MM-dd HH:mm:ss}' -f ([datetime]$dt) } else { 'N/A' }
+        if ($dt -and ([datetime]$dt).Year -gt 1) { '{0:yyyy-MM-dd HH:mm:ss}' -f ([datetime]$dt) } else { $localizedData.NotAvailable }
     }
 
     $createdStr   = & $formatDt $Job.CreatedTime
     $startedStr   = & $formatDt $Job.StartTime
     $completedStr = & $formatDt $Job.EndTime
 
-    $durationStr = 'N/A'
+    $durationStr = $localizedData.NotAvailable
     if ($Job.StartTime -and $Job.EndTime)
     {
         $s = [datetime]$Job.StartTime
@@ -106,19 +129,30 @@ function New-UDPsuJobHeader
 
     $jobIdStr    = [string]$Job.Id
     $scriptPath  = [System.Net.WebUtility]::HtmlEncode([string]$Job.ScriptFullPath)
-    $statusLabel = [System.Net.WebUtility]::HtmlEncode(([string]$Job.Status).ToUpper())
+    $statusLabel = switch ([string]$Job.Status)
+    {
+        'Completed' { $localizedData.StatusCompleted }
+        'Failed'    { $localizedData.StatusFailed }
+        'Warning'   { $localizedData.StatusWarning }
+        'Running'   { $localizedData.StatusRunning }
+        'Error'     { $localizedData.StatusError }
+        Default     { ([string]$Job.Status).ToUpper() }
+    }
+    $statusLabel = [System.Net.WebUtility]::HtmlEncode($statusLabel)
 
     $chipId      = 'job-id-chip-' + $jobIdStr
+    $copiedJs = $localizedData.Copied | ConvertTo-Json -Compress
     $copyOnClick = (
         "navigator.clipboard.writeText('" + $jobIdStr + "')." +
         "then(function(){" +
         "var e=document.getElementById('" + $chipId + "');" +
         "var o=e.innerHTML;" +
-        "e.textContent='Copied!';" +
+        "e.textContent=$copiedJs;" +
         "e.style.color='#66bb6a';" +
         "setTimeout(function(){e.innerHTML=o;e.style.color='';},1500)" +
         "}).catch(function(){})"
     )
+    $copyOnClickAttribute = [System.Net.WebUtility]::HtmlEncode($copyOnClick)
 
     $metaCol = 'display:flex;flex-direction:column;gap:3px;'
     $metaLbl = 'color:var(--psu-term-muted-fg);font-size:10px;font-family:Consolas,Monaco,monospace;text-transform:uppercase;letter-spacing:0.6px;'
@@ -145,7 +179,7 @@ function New-UDPsuJobHeader
 
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">' +
         '<span style="color:var(--psu-term-fg);font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:600;">' + $scriptPath + '</span>' +
-        '<span id="' + $chipId + '" onclick="' + $copyOnClick + '" title="Click to copy Job ID" ' +
+        '<span id="' + $chipId + '" onclick="' + $copyOnClickAttribute + '" title="' + [System.Net.WebUtility]::HtmlEncode($localizedData.CopyJobIdTooltip) + '" ' +
         'style="background:var(--psu-term-chip-bg);color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:11px;' +
         'padding:3px 10px;border-radius:12px;border:1px solid var(--psu-term-border);cursor:pointer;user-select:none;white-space:nowrap;">' +
         '#' + $jobIdStr + '&nbsp;&nbsp;&#10697;' +
@@ -155,27 +189,27 @@ function New-UDPsuJobHeader
         '<div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">' +
 
         '<div style="' + $metaCol + '">' +
-        '<span style="' + $metaLbl + '">Status</span>' +
+        '<span style="' + $metaLbl + '">' + [System.Net.WebUtility]::HtmlEncode($localizedData.StatusLabel) + '</span>' +
         '<span style="' + $statusStyle + 'font-size:11px;font-family:Consolas,Monaco,monospace;font-weight:700;padding:2px 10px;border-radius:3px;letter-spacing:0.3px;">' + $statusLabel + '</span>' +
         '</div>' +
 
         '<div style="' + $metaCol + '">' +
-        '<span style="' + $metaLbl + '">Created</span>' +
+        '<span style="' + $metaLbl + '">' + [System.Net.WebUtility]::HtmlEncode($localizedData.CreatedLabel) + '</span>' +
         '<span style="' + $metaVal + '">' + [System.Net.WebUtility]::HtmlEncode($createdStr) + '</span>' +
         '</div>' +
 
         '<div style="' + $metaCol + '">' +
-        '<span style="' + $metaLbl + '">Started</span>' +
+        '<span style="' + $metaLbl + '">' + [System.Net.WebUtility]::HtmlEncode($localizedData.StartedLabel) + '</span>' +
         '<span style="' + $metaVal + '">' + [System.Net.WebUtility]::HtmlEncode($startedStr) + '</span>' +
         '</div>' +
 
         '<div style="' + $metaCol + '">' +
-        '<span style="' + $metaLbl + '">Completed</span>' +
+        '<span style="' + $metaLbl + '">' + [System.Net.WebUtility]::HtmlEncode($localizedData.CompletedLabel) + '</span>' +
         '<span style="' + $metaVal + '">' + [System.Net.WebUtility]::HtmlEncode($completedStr) + '</span>' +
         '</div>' +
 
         '<div style="' + $metaCol + '">' +
-        '<span style="' + $metaLbl + '">Duration</span>' +
+        '<span style="' + $metaLbl + '">' + [System.Net.WebUtility]::HtmlEncode($localizedData.DurationLabel) + '</span>' +
         '<span style="' + $metaVal + '">' + [System.Net.WebUtility]::HtmlEncode($durationStr) + '</span>' +
         '</div>' +
 

@@ -70,6 +70,28 @@ Describe 'Resolve-PSULocalizationResource' {
         $result[0].Culture | Should -Be 'en'
     }
 
+    It 'Should resolve resources recursively beneath each culture folder' {
+        foreach ($culture in @('en', 'fr'))
+        {
+            $resourcePath = Join-Path -Path $script:moduleBase -ChildPath $culture
+            $resourcePath = Join-Path -Path $resourcePath -ChildPath 'Components\Jobs'
+            $null = New-Item -Path $resourcePath -ItemType Directory -Force
+            $resourcePath = Join-Path -Path $resourcePath -ChildPath 'TestModule.strings.psd1'
+            Set-Content -Path $resourcePath -Value '@{ Message = ''Value'' }'
+        }
+
+        $parameters = @{
+            ModuleBase       = $script:moduleBase
+            Name             = 'TestModule'
+            UICulture        = 'fr'
+            DefaultUICulture = 'en'
+        }
+        $result = @(synedgy.universal.helper\Resolve-PSULocalizationResource @parameters)
+
+        ($result.Culture -join ',') | Should -Be 'en,fr'
+        $result.Path | Should -Match 'Components[\\/]Jobs'
+    }
+
     It 'Should prefer the strings PSD1 resource name' {
         $culturePath = Join-Path -Path $script:moduleBase -ChildPath 'en'
         $null = New-Item -Path $culturePath -ItemType Directory -Force

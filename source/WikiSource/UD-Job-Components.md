@@ -14,6 +14,28 @@ Both components rely on private helpers (`ConvertFrom-PsuJobOutputEntry`, `Conve
 `ConvertTo-UDPsuThemedIconMarkup`) and branding assets under `images/synedgy_pwsh/` that ship with
 this module -- consuming projects do not need to duplicate them.
 
+Both components own English, French, and German resource bundles:
+
+- `synedgy.universal.helper.PsuJobHeader.strings.psd1`
+- `synedgy.universal.helper.PsuJobTerminal.strings.psd1`
+
+Pass the page-selected `Language` and the consuming module's
+`DefaultUILanguage`. Resolution follows requested exact/parent culture,
+configured default, then mandatory English:
+
+```powershell
+$localizationParameters = @{
+    Language          = $language
+    DefaultUILanguage = $moduleConfig.DefaultUILanguage
+}
+New-UDPsuJobHeader -Job $job @localizationParameters
+New-UDPsuJobTerminalView -JobId $job.Id @localizationParameters
+```
+
+The terminal serializes its resolved dictionary through each
+`New-UDDynamic`/`Sync-UDElement` argument list, ensuring refresh runspaces use
+the same language selected when the component was created.
+
 ## Usage
 
 ```powershell

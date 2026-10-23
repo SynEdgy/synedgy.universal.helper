@@ -115,6 +115,10 @@ function Import-PSUAiTool
 
             if ($PSCmdlet.ShouldProcess(('Registering backing PSU Script for AI tool {0}: {1}' -f $aiTool.Name, ($newScriptParams | ConvertTo-Json -Compress))))
             {
+                #TODO: Find a helper-level way to preserve common parameters such as -Confirm
+                # for module-backed PSU scripts without generating per-command wrappers.
+                # Invoke-PSUScript -Parameters currently exposes only declared parameters,
+                # while non-interactive ShouldProcess prompts can fail in PSU runspaces.
                 $null = New-PSUScript @newScriptParams
             }
         }

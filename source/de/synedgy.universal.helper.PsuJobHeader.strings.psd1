@@ -1,0 +1,15 @@
+﻿@{
+    NotAvailable     = 'k. A.'
+    Copied           = 'Kopiert!'
+    CopyJobIdTooltip = 'Klicken, um die Job-ID zu kopieren'
+    StatusLabel      = 'Status'
+    CreatedLabel     = 'Erstellt'
+    StartedLabel     = 'Gestartet'
+    CompletedLabel   = 'Abgeschlossen'
+    DurationLabel    = 'Dauer'
+    StatusCompleted  = 'ABGESCHLOSSEN'
+    StatusFailed     = 'FEHLGESCHLAGEN'
+    StatusWarning    = 'WARNUNG'
+    StatusRunning    = 'WIRD AUSGEFÜHRT'
+    StatusError      = 'FEHLER'
+}
