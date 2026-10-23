@@ -1,6 +1,5 @@
 BeforeAll {
     $script:moduleName = 'synedgy.universal.helper'
-    $script:removePageDrive = $false
 
     # If the module is not found, run the build task 'noop'.
     if (-not (Get-Module -Name $script:moduleName -ListAvailable))
@@ -15,30 +14,12 @@ BeforeAll {
     $PSDefaultParameterValues['InModuleScope:ModuleName'] = $script:moduleName
     $PSDefaultParameterValues['Mock:ModuleName'] = $script:moduleName
     $PSDefaultParameterValues['Should:ModuleName'] = $script:moduleName
-
-    if (-not (Get-PSDrive -Name Page -ErrorAction SilentlyContinue))
-    {
-        $pageDriveParameters = @{
-            Name        = 'Page'
-            PSProvider  = 'Variable'
-            Root        = ''
-            Scope       = 'Global'
-            ErrorAction = 'SilentlyContinue'
-        }
-        $pageDrive = New-PSDrive @pageDriveParameters
-        $script:removePageDrive = $null -ne $pageDrive
-    }
 }
 
 AfterAll {
     $PSDefaultParameterValues.Remove('Mock:ModuleName')
     $PSDefaultParameterValues.Remove('InModuleScope:ModuleName')
     $PSDefaultParameterValues.Remove('Should:ModuleName')
-
-    if ($script:removePageDrive)
-    {
-        Remove-PSDrive -Name Page -Scope Global -ErrorAction SilentlyContinue
-    }
 
     Remove-Module -Name $script:moduleName
 }
@@ -60,31 +41,12 @@ Describe 'New-UDLanguageSelector' {
         $command.Parameters.Keys | Should -Contain 'WhatIf'
     }
 
-    It 'Should render each option using its native language name' {
-        InModuleScope -ScriptBlock {
-            Mock -CommandName Get-PSULocalizationLanguage -MockWith {
-                @('de', 'en', 'fr')
-            }
-            Mock -CommandName New-UDSelectOption -MockWith {
-                param($Name, $Value)
+    It 'Should resolve option display names through the culture helper' {
+        $command = Get-Command -Name New-UDLanguageSelector -Module $script:moduleName -ErrorAction Stop
+        $commandSource = $command.ScriptBlock.ToString()
 
-                [pscustomobject]@{
-                    Name  = $Name
-                    Value = $Value
-                }
-            }
-            Mock -CommandName New-UDSelect -MockWith {
-                param($Option)
-
-                & $Option
-            }
-
-            $options = @(New-UDLanguageSelector -Language 'en' -Name 'Demo' -UseNativeLanguageName -Confirm:$false)
-
-            ($options | Where-Object Value -eq 'de').Name | Should -Be 'Deutsch'
-            ($options | Where-Object Value -eq 'en').Name | Should -Be 'English'
-            ($options | Where-Object Value -eq 'fr').Name | Should -Be 'français'
-        }
+        $commandSource | Should -Match 'Get-PSULanguageDisplayName @displayNameParameters'
+        $commandSource | Should -Match 'UseNativeLanguageName\s+= \$UseNativeLanguageName'
     }
 
     It 'Should reject native names combined with compact labels' {

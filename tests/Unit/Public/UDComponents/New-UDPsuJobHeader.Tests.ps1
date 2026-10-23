@@ -27,6 +27,13 @@ BeforeAll {
     $PSDefaultParameterValues['InModuleScope:ModuleName'] = $script:moduleName
     $PSDefaultParameterValues['Mock:ModuleName'] = $script:moduleName
     $PSDefaultParameterValues['Should:ModuleName'] = $script:moduleName
+
+    InModuleScope -ScriptBlock {
+        if (-not (Get-Command -Name New-UDHtml -ErrorAction SilentlyContinue))
+        {
+            function script:New-UDHtml {}
+        }
+    }
 }
 
 AfterAll {

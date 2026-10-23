@@ -176,24 +176,11 @@ function New-UDLanguageSelector
 
         if ([System.String]::IsNullOrWhiteSpace($displayName))
         {
-            try
-            {
-                $culture = [System.Globalization.CultureInfo]::GetCultureInfo(
-                    $availableLanguage
-                )
-                $displayName = if ($UseNativeLanguageName.IsPresent)
-                {
-                    $culture.NativeName
-                }
-                else
-                {
-                    $culture.EnglishName
-                }
+            $displayNameParameters = @{
+                Language              = $availableLanguage
+                UseNativeLanguageName = $UseNativeLanguageName
             }
-            catch [System.Globalization.CultureNotFoundException]
-            {
-                $displayName = $availableLanguage
-            }
+            $displayName = Get-PSULanguageDisplayName @displayNameParameters
         }
 
         $languageOptions[$availableLanguage] = $displayName
