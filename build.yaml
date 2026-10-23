@@ -9,6 +9,9 @@
 BuiltModuleSubdirectory: module
 CopyPaths:
   - en-US
+  - en
+  - de
+  - fr
   - images
 #  - DSCResources
   # - Modules

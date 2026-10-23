@@ -1,0 +1,15 @@
+@{
+    NotAvailable     = 'N/A'
+    Copied           = 'Copied!'
+    CopyJobIdTooltip = 'Click to copy Job ID'
+    StatusLabel      = 'Status'
+    CreatedLabel     = 'Created'
+    StartedLabel     = 'Started'
+    CompletedLabel   = 'Completed'
+    DurationLabel    = 'Duration'
+    StatusCompleted  = 'COMPLETED'
+    StatusFailed     = 'FAILED'
+    StatusWarning    = 'WARNING'
+    StatusRunning    = 'RUNNING'
+    StatusError      = 'ERROR'
+}

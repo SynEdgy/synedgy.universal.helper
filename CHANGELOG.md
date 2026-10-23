@@ -5,6 +5,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added recursive localization resource discovery beneath culture directories
+  while preserving root-level resource priority and rejecting ambiguous nested
+  bundle filenames.
+- Added `UseNativeLanguageName` to `New-UDLanguageSelector` for dependency-free
+  culture-native option labels such as `English`, `français`, and `Deutsch`.
+- Added `Get-PSUComponentLocalizedData` to standardize component-owned
+  localization bundles with requested-language, module-default, and mandatory
+  English fallback behavior plus optional shared PSU caching.
+- Added English, French, and German component-owned localization for
+  `New-UDPsuJobHeader` and `New-UDPsuJobTerminalView`, including terminal
+  deferred refresh runspaces and translated job metadata, controls, states,
+  warnings, table headers, and stream labels.
+- Added `Initialize-PSULocalizationCache` to load every available language for
+  a mandatory named resource into an optional caller-owned cache.
+- Added `Resolve-PSULocalizationLanguage` to resolve explicit and HTTP
+  `Accept-Language` preferences against a mandatory named resource, including
+  exact-to-parent culture fallback.
+- Added `Get-PSULocalizationLanguage` to discover resource-backed culture
+  folders, including automatic consuming-module resolution through the
+  parameter-binding `Get-PSCallStack` pattern used by `synedgy.PSSqlite`.
+- Added `New-UDLanguageSelector`, a reusable Universal Dashboard selector with
+  automatic language discovery, persistent cookie selection, compact labels,
+  custom display names, Material UI `Sx`, and a site CSS class hook.
+
 ### Changed
 
 - Changed `Get-ModuleApiEndpoint` to import the target module into the current

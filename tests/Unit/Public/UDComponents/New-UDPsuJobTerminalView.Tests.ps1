@@ -1,5 +1,18 @@
 BeforeAll {
     $script:moduleName = 'synedgy.universal.helper'
+    $script:projectPath = $PSScriptRoot
+
+    while (-not (Test-Path -Path (Join-Path -Path $script:projectPath -ChildPath 'build.ps1')))
+    {
+        $parentPath = Split-Path -Path $script:projectPath -Parent
+
+        if ($parentPath -eq $script:projectPath)
+        {
+            throw 'Could not locate repository root containing build.ps1.'
+        }
+
+        $script:projectPath = $parentPath
+    }
 
     # If the module is not found, run the build task 'noop'.
     if (-not (Get-Module -Name $script:moduleName -ListAvailable))
@@ -51,6 +64,8 @@ Describe 'New-UDPsuJobTerminalView' {
         $command.Parameters.Keys | Should -Contain 'CustomCss'
         $command.Parameters.Keys | Should -Contain 'HideLineNumbers'
         $command.Parameters.Keys | Should -Contain 'HideTimestamps'
+        $command.Parameters.Keys | Should -Contain 'Language'
+        $command.Parameters.Keys | Should -Contain 'DefaultUILanguage'
     }
 
     It 'Should type HideLineNumbers and HideTimestamps as switch parameters' {
@@ -68,6 +83,17 @@ Describe 'New-UDPsuJobTerminalView' {
 
             $meta | Should -Not -BeNullOrEmpty
             $meta.DefaultValue.Value | Should -Be 'Auto'
+        }
+    }
+
+    It 'Should default Language to English' {
+        InModuleScope -ScriptBlock {
+            $fn   = Get-Command -Name New-UDPsuJobTerminalView
+            $meta = $fn.ScriptBlock.Ast.Body.ParamBlock.Parameters |
+                Where-Object { $_.Name.VariablePath.UserPath -eq 'Language' }
+
+            $meta | Should -Not -BeNullOrEmpty
+            $meta.DefaultValue.Value | Should -Be 'en'
         }
     }
 
@@ -116,6 +142,51 @@ Describe 'New-UDPsuJobTerminalView' {
             $functionText | Should -Not -Match '\bGet-ModuleConfig\b'
             $functionText | Should -Not -Match 'http://localhost:5000'
         }
+    }
+
+    It 'Should resolve and propagate component-owned localized data' {
+        InModuleScope -ScriptBlock {
+            $functionText = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast.Extent.Text
+
+            $functionText | Should -Match "Name\s+= 'synedgy\.universal\.helper\.PsuJobTerminal'"
+            $functionText | Should -Match 'Get-PSUComponentLocalizedData @localizedDataParameters'
+            $functionText | Should -Match '\$localizedDataJson = \$localizedData \| ConvertTo-Json -Compress'
+            $functionText | Should -Match 'ArgumentList\[8\]'
+            $functionText | Should -Match 'ConvertFrom-Json .* -AsHashtable'
+            ([regex]::Matches($functionText, '\$localizedDataJson').Count) | Should -BeGreaterOrEqual 5
+        }
+    }
+
+    It 'Should use localized terminal chrome and dynamic messages' {
+        InModuleScope -ScriptBlock {
+            $functionText = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast.Extent.Text
+
+            $functionText | Should -Match '\$localizedData\.OutputTab'
+            $functionText | Should -Match '\$localizedData\.StructuredEventsTab'
+            $functionText | Should -Match '\$localizedData\.ToggleLineNumbers'
+            $functionText | Should -Match '\$dynLocalizedData\.FetchedAt'
+            $functionText | Should -Match '\$strings\.LiveOutputUnavailable'
+            $functionText | Should -Match '\$strings\.TimestampColumn'
+        }
+    }
+
+    It 'Should provide matching English, French, and German component resources' {
+        $englishPath = Join-Path -Path $script:projectPath -ChildPath 'source\en\synedgy.universal.helper.PsuJobTerminal.strings.psd1'
+        $frenchPath = Join-Path -Path $script:projectPath -ChildPath 'source\fr\synedgy.universal.helper.PsuJobTerminal.strings.psd1'
+        $germanPath = Join-Path -Path $script:projectPath -ChildPath 'source\de\synedgy.universal.helper.PsuJobTerminal.strings.psd1'
+
+        $englishData = Import-PowerShellDataFile -LiteralPath $englishPath
+        $frenchData = Import-PowerShellDataFile -LiteralPath $frenchPath
+        $germanData = Import-PowerShellDataFile -LiteralPath $germanPath
+
+        @($englishData.Keys | Sort-Object) | Should -Be @($frenchData.Keys | Sort-Object)
+        @($englishData.Keys | Sort-Object) | Should -Be @($germanData.Keys | Sort-Object)
+        $englishData.OutputTab | Should -Be 'Output'
+        $frenchData.OutputTab | Should -Be 'Sortie'
+        ($frenchData.FetchedAt -f '12:00') | Should -Be 'récupéré à 12:00'
+        $germanData.OutputTab | Should -Be 'Ausgabe'
+        ($germanData.LiveOutputUnavailable -f 'Fehler', '') |
+            Should -Be 'Live-Ausgabe nicht verfügbar: Fehler'
     }
 
     It 'Should separate completed blocks without splitting conditional or exception chains' {

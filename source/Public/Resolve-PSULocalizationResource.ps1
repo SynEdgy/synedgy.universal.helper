@@ -5,9 +5,10 @@ function Resolve-PSULocalizationResource
         Resolves localized data resources for a requested UI culture.
 
         .DESCRIPTION
-        Resolves data-only PSD1 localization files stored in culture folders directly
-        below a module base directory. Resources are returned in merge order: configured
-        default culture, requested parent cultures, and requested exact culture.
+        Resolves data-only PSD1 localization files stored at the root or recursively
+        beneath culture folders directly below a module base directory. Resources are
+        returned in merge order: configured default culture, requested parent cultures,
+        and requested exact culture.
 
         The preferred resource name is <Name>.strings.psd1. <Name>.psd1 is supported as
         a compatibility fallback when the preferred file is absent.
