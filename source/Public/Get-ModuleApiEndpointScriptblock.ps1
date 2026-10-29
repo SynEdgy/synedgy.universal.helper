@@ -123,6 +123,25 @@ function Get-ModuleApiEndpointScriptblock
                     }
                 }
             }
+            else
+            {
+                $classType = if ($parameterType.IsArray)
+                {
+                    $parameterType.GetElementType()
+                }
+                else
+                {
+                    $parameterType
+                }
+
+                $isPowerShellClass = $classType.IsClass -and
+                    $classType.Assembly.IsDynamic -and
+                    $classType.Assembly.FullName -like 'PowerShell Class Assembly,*'
+                if ($isPowerShellClass)
+                {
+                    $replacementType = if ($parameterType.IsArray) { '[object[]]' } else { '[object]' }
+                }
+            }
         }
 
         if ($replacementType)
