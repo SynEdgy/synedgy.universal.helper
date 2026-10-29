@@ -37,6 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runspace before discovering attributed endpoint functions, so
   `Import-PSUEndpoint` no longer requires the consuming resource file to import
   the endpoint module separately.
+- Changed generated API endpoint contracts to expose enum parameters as
+  validated strings and switch parameters as Booleans. This keeps PSU resource
+  parsing independent from consuming-module type accelerators while preserving
+  strong parameter binding when the module command is invoked.
+- Parameters marked with `Parameter(DontShow)` are now omitted from generated
+  API endpoint contracts while remaining available to the underlying module
+  command through its own defaults and internal invocation behavior.
+- Generated API wrappers now pass `-Confirm:$false` to commands that support
+  confirmation, preventing high-impact `ShouldProcess` prompts from failing in
+  PSU's non-interactive endpoint runspace.
   
 ## [0.2.0] - 2026-09-17
 

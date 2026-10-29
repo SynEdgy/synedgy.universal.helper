@@ -11,6 +11,11 @@ applyTo: "source/**/*.ps1,source/**/*.psd1,tests/**/*.ps1"
 - Load component strings with `Get-PSUComponentLocalizedData`. Resolution order
   is requested exact/parent culture, module-configured default, then mandatory
   English.
+- Name each loaded dictionary after its resource using the
+  `$resourceNameStrings` pattern, such as `$psuConfigDemoStrings`. Apply the
+  same resource name to its splat (`$resourceNameStringsParameters`), deferred
+  `$Page:` variables, and serialized copies; do not use generic names such as
+  `$localizedData`, `$localizedDataParameters`, or `$strings`.
 - Resolve strings once when creating a component. Preserve the selected
   dictionary in `$Page:` for deferred callbacks or serialize it through
   `ArgumentList` when the component already uses explicit deferred arguments.

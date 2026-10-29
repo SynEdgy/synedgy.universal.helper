@@ -26,24 +26,176 @@ function Get-ModuleApiEndpointScriptblock
         $ModuleApiEndpoint
     )
 
-    #region Force Endpoint to have pascalCase parameters
+    #region Build a parser-safe endpoint parameter contract
     $paramBlock = $ModuleApiEndpoint.FunctionInfo.ScriptBlock.ast.Body.ParamBlock
     $paramBlockStr = $paramBlock.Extent.Text
-    # change the Extent to camelCase the Extent name
-    $paramBlock.Parameters | ForEach-Object {
-        # Update $_.Name to be camelCase
-        $parameter = $_
+    $parameterReplacements = [System.Collections.Generic.List[object]]::new()
+    $hiddenParameterIndexes = [System.Collections.Generic.List[int]]::new()
+    $parameters = @($paramBlock.Parameters)
+
+    for ($parameterIndex = 0; $parameterIndex -lt $parameters.Count; $parameterIndex++)
+    {
+        $parameter = $parameters[$parameterIndex]
         $oldParamName = $parameter.Name.VariablePath.UserPath
+        $parameterMetadata = $ModuleApiEndpoint.FunctionInfo.Parameters[$oldParamName]
+        $isHidden = $parameterMetadata.Attributes |
+            Where-Object {
+                $_ -is [System.Management.Automation.ParameterAttribute] -and $_.DontShow
+            }
+        if ($isHidden)
+        {
+            $hiddenParameterIndexes.Add($parameterIndex)
+            continue
+        }
 
-        # If the parameter name is not in camelCase, convert it
-        $FirstChar = $oldParamName.Substring(0, 1) # first letter after the $
-        $RestOfName = $oldParamName.Substring(1) # rest of the name after the first letter
-        $newParamName = '{0}{1}' -f $FirstChar.ToLowerInvariant(),$RestOfName
+        $firstChar = $oldParamName.Substring(0, 1)
+        $restOfName = $oldParamName.Substring(1)
+        $newParamName = '{0}{1}' -f $firstChar.ToLowerInvariant(), $restOfName
         $replacedParamName = $parameter.Name.Extent.text -creplace ([regex]::Escape($oldParamName)), $newParamName
-        $startOffSet = $parameter.Name.Extent.StartOffset - $paramBlock.Extent.StartOffset
-        $paramBlockStr = $paramBlockStr.Remove($startOffSet,$replacedParamName.Length).Insert($startOffSet,$replacedParamName)
+        $parameterReplacements.Add([pscustomobject]@{
+                StartOffset = $parameter.Name.Extent.StartOffset - $paramBlock.Extent.StartOffset
+                Length      = $parameter.Name.Extent.EndOffset - $parameter.Name.Extent.StartOffset
+                Text        = $replacedParamName
+            })
 
-        #TODO: Change switch parameter to bool if PSU prefers that
+        $typeConstraint = $parameter.Attributes |
+            Where-Object { $_ -is [System.Management.Automation.Language.TypeConstraintAst] } |
+            Select-Object -Last 1
+        if (-not $typeConstraint -or -not $parameterMetadata)
+        {
+            return
+        }
+
+        $parameterType = $parameterMetadata.ParameterType
+        $replacementType = $null
+        if ($parameterType -eq [System.Management.Automation.SwitchParameter])
+        {
+            $replacementType = '[bool]'
+        }
+        else
+        {
+            $enumType = if ($parameterType.IsEnum)
+            {
+                $parameterType
+            }
+            elseif ($parameterType.IsArray -and $parameterType.GetElementType().IsEnum)
+            {
+                $parameterType.GetElementType()
+            }
+
+            if ($enumType)
+            {
+                $replacementType = if ($parameterType.IsArray) { '[string[]]' } else { '[string]' }
+                $hasValidateSet = $parameterMetadata.Attributes |
+                    Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] }
+                if (-not $hasValidateSet)
+                {
+                    $enumValues = [System.Enum]::GetNames($enumType) | ForEach-Object {
+                        "'{0}'" -f $_.Replace("'", "''")
+                    }
+                    $replacementType = '[ValidateSet({0})]{1}' -f ($enumValues -join ', '), $replacementType
+                }
+
+                if ($parameter.DefaultValue)
+                {
+                    $enumDefaultMembers = $parameter.DefaultValue.FindAll(
+                        {
+                            param($ast)
+
+                            $ast -is [System.Management.Automation.Language.MemberExpressionAst] -and
+                            $ast.Static -and
+                            $ast.Expression -is [System.Management.Automation.Language.TypeExpressionAst]
+                        },
+                        $true
+                    )
+                    foreach ($enumDefaultMember in $enumDefaultMembers)
+                    {
+                        $defaultType = $enumDefaultMember.Expression.TypeName.GetReflectionType()
+                        $defaultName = $enumDefaultMember.Member.Value
+                        if ($defaultType -eq $enumType -and [System.Enum]::IsDefined($enumType, $defaultName))
+                        {
+                            $parameterReplacements.Add([pscustomobject]@{
+                                    StartOffset = $enumDefaultMember.Extent.StartOffset - $paramBlock.Extent.StartOffset
+                                    Length      = $enumDefaultMember.Extent.EndOffset - $enumDefaultMember.Extent.StartOffset
+                                    Text        = "'{0}'" -f $defaultName.Replace("'", "''")
+                                })
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($replacementType)
+        {
+            $parameterReplacements.Add([pscustomobject]@{
+                    StartOffset = $typeConstraint.Extent.StartOffset - $paramBlock.Extent.StartOffset
+                    Length      = $typeConstraint.Extent.EndOffset - $typeConstraint.Extent.StartOffset
+                    Text        = $replacementType
+                })
+        }
+    }
+
+    if ($hiddenParameterIndexes.Count -gt 0)
+    {
+        $hiddenParameterGroups = [System.Collections.Generic.List[object]]::new()
+        $groupStart = $hiddenParameterIndexes[0]
+        $groupEnd = $groupStart
+        foreach ($hiddenParameterIndex in $hiddenParameterIndexes | Select-Object -Skip 1)
+        {
+            if ($hiddenParameterIndex -eq ($groupEnd + 1))
+            {
+                $groupEnd = $hiddenParameterIndex
+                continue
+            }
+
+            $hiddenParameterGroups.Add([pscustomobject]@{
+                    Start = $groupStart
+                    End   = $groupEnd
+                })
+            $groupStart = $hiddenParameterIndex
+            $groupEnd = $hiddenParameterIndex
+        }
+        $hiddenParameterGroups.Add([pscustomobject]@{
+                Start = $groupStart
+                End   = $groupEnd
+            })
+
+        foreach ($hiddenParameterGroup in $hiddenParameterGroups)
+        {
+            if ($hiddenParameterGroup.End -lt ($parameters.Count - 1))
+            {
+                $removalStart = $parameters[$hiddenParameterGroup.Start].Extent.StartOffset
+                $removalEnd = $parameters[$hiddenParameterGroup.End + 1].Extent.StartOffset
+            }
+            elseif ($hiddenParameterGroup.Start -gt 0)
+            {
+                $removalStart = $parameters[$hiddenParameterGroup.Start - 1].Extent.EndOffset
+                $removalEnd = $parameters[$hiddenParameterGroup.End].Extent.EndOffset
+            }
+            else
+            {
+                $removalStart = $parameters[$hiddenParameterGroup.Start].Extent.StartOffset
+                $removalEnd = $parameters[$hiddenParameterGroup.End].Extent.EndOffset
+            }
+
+            $parameterReplacements.Add([pscustomobject]@{
+                    StartOffset = $removalStart - $paramBlock.Extent.StartOffset
+                    Length      = $removalEnd - $removalStart
+                    Text        = ''
+                })
+        }
+    }
+
+    $parameterReplacements |
+        Sort-Object -Property StartOffset -Descending |
+        ForEach-Object {
+            $paramBlockStr = $paramBlockStr.Remove($_.StartOffset, $_.Length).Insert($_.StartOffset, $_.Text)
+        }
+
+    if ($parameterReplacements.Count -gt 0)
+    {
+        Write-Debug -Message ('Generated parser-safe parameter contract for {0}: {1}' -f
+            $ModuleApiEndpoint.FunctionInfo.Name, $paramBlockStr)
     }
     #TODO: Add the Inputs/Outputs documentation to the CBH section
     #endregion
@@ -85,7 +237,19 @@ function Get-ModuleApiEndpointScriptblock
     ) -join ''
 
 
-    $functionCall = '{0}{1}    {2} @PSBoundParameters{1}' -f $loggingConfig,"`r`n",$ModuleApiEndpoint.FunctionInfo.Name
+    $confirmArgument = if ($ModuleApiEndpoint.FunctionInfo.Parameters.ContainsKey('Confirm'))
+    {
+        ' -Confirm:$false'
+    }
+    else
+    {
+        ''
+    }
+    $functionCall = '{0}{1}    {2} @PSBoundParameters{3}{1}' -f
+        $loggingConfig,
+        "`r`n",
+        $ModuleApiEndpoint.FunctionInfo.Name,
+        $confirmArgument
     # $functionCall = '$result = {0} @PSBoundParameters' -f $ModuleApiEndpoint.FunctionInfo.Name
     # JSON automatic serialization
     # $jsonConvert = '$result | ConvertTo-Json -Depth 10'

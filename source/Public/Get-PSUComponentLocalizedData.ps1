@@ -28,13 +28,13 @@ function Get-PSUComponentLocalizedData
         An optional synchronized dictionary shared across PSU app runspaces.
 
         .EXAMPLE
-        $parameters = @{
+        $psuConfigAddUserButtonStringsParameters = @{
             Name              = 'PSUConfig.AddUserButton'
             Language          = 'fr-CH'
             DefaultUILanguage = 'en'
             Cache             = $Cache:PSULocalization
         }
-        $strings = Get-PSUComponentLocalizedData @parameters
+        $psuConfigAddUserButtonStrings = Get-PSUComponentLocalizedData @psuConfigAddUserButtonStringsParameters
 
         Gets the best available component strings and uses the shared cache
         when one is supplied.
@@ -88,7 +88,7 @@ function Get-PSUComponentLocalizedData
     }
     $resolvedLanguage = Resolve-PSULocalizationLanguage @languageParameters
 
-    $localizedDataParameters = @{
+    $componentStringsParameters = @{
         ModuleBase       = $ModuleBase
         Name             = $Name
         UICulture        = $resolvedLanguage
@@ -96,8 +96,8 @@ function Get-PSUComponentLocalizedData
     }
     if ($null -ne $Cache)
     {
-        $localizedDataParameters.Cache = $Cache
+        $componentStringsParameters.Cache = $Cache
     }
 
-    return Get-PSULocalizedData @localizedDataParameters
+    return Get-PSULocalizedData @componentStringsParameters
 }
