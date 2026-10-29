@@ -20,6 +20,12 @@ enum EndpointMode
     Second
 }
 
+class EndpointPayload
+{
+    [string] $Name
+    [int] $Count
+}
+
 function Invoke-EndpointContract
 {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
@@ -49,6 +55,14 @@ function Invoke-EndpointContract
         [EndpointMode[]]
         $DefaultModes = @([EndpointMode]::First, [EndpointMode]::Second),
 
+        [Parameter()]
+        [EndpointPayload]
+        $Payload,
+
+        [Parameter()]
+        [EndpointPayload[]]
+        $Payloads,
+
         [Parameter(DontShow)]
         [switch]
         $InternalFlag,
@@ -69,6 +83,10 @@ function Invoke-EndpointContract
             DefaultMode      = $DefaultMode.ToString()
             DefaultModeType  = $DefaultMode.GetType().FullName
             DefaultModes     = @($DefaultModes | ForEach-Object ToString)
+            Payload          = $Payload
+            PayloadType      = $Payload.GetType().FullName
+            Payloads         = $Payloads
+            PayloadsType     = $Payloads.GetType().GetElementType().FullName
             InternalToken    = $InternalToken
             InternalFlag     = $InternalFlag.IsPresent
             InternalCount    = $InternalCount
@@ -88,10 +106,15 @@ Export-ModuleMember -Function 'Invoke-EndpointContract'
         'EndpointMode',
         $script:functionInfo.Parameters['Mode'].ParameterType
     )
+    $script:typeAccelerators::Add(
+        'EndpointPayload',
+        $script:functionInfo.Parameters['Payload'].ParameterType
+    )
 }
 
 AfterAll {
     $script:typeAccelerators::Remove('EndpointMode')
+    $script:typeAccelerators::Remove('EndpointPayload')
     Remove-Module -Name $script:testModuleName -Force -ErrorAction SilentlyContinue
     Remove-Module -Name $script:moduleName -Force -ErrorAction SilentlyContinue
 }
@@ -120,6 +143,12 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
         $script:generatedText | Should -Not -Match '\[switch\]'
     }
 
+    It 'Should replace PowerShell class parameters with parser-safe objects' {
+        $script:generatedText | Should -Match '\[object\]\s*\$payload'
+        $script:generatedText | Should -Match '\[object\[\]\]\s*\$payloads'
+        $script:generatedText | Should -Not -Match '\[EndpointPayload(?:\[\])?\]'
+    }
+
     It 'omits parameters marked DontShow from the endpoint contract' {
         $script:generatedText | Should -Not -Match 'InternalToken'
         $script:generatedText | Should -Not -Match 'InternalFlag'
@@ -131,8 +160,29 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
         $script:generatedText | Should -Match 'Invoke-EndpointContract @PSBoundParameters -Confirm:\$false'
     }
 
-    It 'retains strong enum and switch binding when invoking the module command' {
-        $result = & $script:generatedScriptblock -mode Second -force $true -modes First, Second
+    It 'Should retain strong enum, switch, and class binding when invoking the module command' {
+        $payload = [pscustomobject]@{
+            Name  = 'Primary'
+            Count = 1
+        }
+        $payloads = @(
+            [pscustomobject]@{
+                Name  = 'First'
+                Count = 2
+            }
+            [ordered]@{
+                Name  = 'Second'
+                Count = 3
+            }
+        )
+        $endpointParameters = @{
+            mode     = 'Second'
+            force    = $true
+            modes    = @('First', 'Second')
+            payload  = $payload
+            payloads = $payloads
+        }
+        $result = & $script:generatedScriptblock @endpointParameters
 
         $result.Mode | Should -Be 'Second'
         $result.ModeType | Should -Be 'EndpointMode'
@@ -142,12 +192,30 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
         $result.DefaultMode | Should -Be 'First'
         $result.DefaultModeType | Should -Be 'EndpointMode'
         $result.DefaultModes | Should -Be @('First', 'Second')
+        $result.Payload | Should -BeOfType $script:functionInfo.Parameters['Payload'].ParameterType
+        $result.Payload.Name | Should -Be 'Primary'
+        $result.PayloadType | Should -Be 'EndpointPayload'
+        $result.Payloads.Name | Should -Be @('First', 'Second')
+        $result.PayloadsType | Should -Be 'EndpointPayload'
         $result.InternalToken | Should -Be 'module-default'
         $result.InternalFlag | Should -BeFalse
         $result.InternalCount | Should -Be 7
     }
 
-    It 'can execute in a runspace where the custom enum type is unavailable' {
+    It 'Should reproduce the process-local PowerShell class type failure without normalization' {
+        $command = 'param([EndpointPayload] $Payload) $Payload'
+        $encodedCommand = [System.Convert]::ToBase64String(
+            [System.Text.Encoding]::Unicode.GetBytes($command)
+        )
+        $powerShellPath = (Get-Process -Id $PID).Path
+
+        $output = & $powerShellPath -NoLogo -NoProfile -EncodedCommand $encodedCommand 2>&1
+
+        $LASTEXITCODE | Should -Not -Be 0
+        $output | Out-String | Should -Match 'Unable to find type \[EndpointPayload\]'
+    }
+
+    It 'Should execute in a runspace where custom enum and class types are unavailable' {
         $isolatedPowerShell = [powershell]::Create()
         try
         {
@@ -160,7 +228,9 @@ function Invoke-EndpointContract
         [bool]$Force,
         [string[]]$Modes,
         [string]$DefaultMode = 'First',
-        [string[]]$DefaultModes = @('First', 'Second')
+        [string[]]$DefaultModes = @('First', 'Second'),
+        [object]$Payload,
+        [object[]]$Payloads
     )
 
     [pscustomobject]@{
@@ -169,12 +239,14 @@ function Invoke-EndpointContract
         Modes        = $Modes
         DefaultMode  = $DefaultMode
         DefaultModes = $DefaultModes
+        Payload      = $Payload
+        Payloads     = $Payloads
     }
 }
 
 & {
 __GENERATED_SCRIPTBLOCK__
-} -mode Second -force $true -modes First, Second
+} -mode Second -force $true -modes First, Second -payload @{ Name = 'Primary'; Count = 1 }
 '@ -replace '__GENERATED_SCRIPTBLOCK__', $script:generatedText
 
             $result = $isolatedPowerShell.AddScript($scriptUnderTest).Invoke()
@@ -183,6 +255,7 @@ __GENERATED_SCRIPTBLOCK__
             $result.Mode | Should -Be 'Second'
             $result.Force | Should -BeTrue
             $result.Modes | Should -Be @('First', 'Second')
+            $result.Payload.Name | Should -Be 'Primary'
         }
         finally
         {

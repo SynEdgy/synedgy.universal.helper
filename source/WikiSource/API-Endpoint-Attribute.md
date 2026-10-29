@@ -48,6 +48,50 @@ The target module must still be available in the PSU environment selected for en
 Automatic import here ensures discovery during resource configuration; it does not replace the
 environment's module preload configuration for endpoint runspaces.
 
+## PowerShell class parameters
+
+PowerShell classes defined in a consuming module are compiled into a dynamic, session-local
+assembly. Registering the class as a type accelerator in the module suffix makes the type
+available after that module is imported into the current PowerShell process, but it does not
+make the type available to a separate PSU parser process or to a session that has not imported
+the consuming module. Copying a parameter such as `[MyRequest] $Request` into the endpoint
+wrapper can therefore make PSU reject the complete parameter contract or display no parameters
+in the administration UI. This also applies when ModuleBuilder merges the class from
+`source/Classes` and `source/suffix.ps1` exports its type accelerator.
+
+Generated endpoint wrappers expose PowerShell class parameters as `[object]` and class arrays as
+`[object[]]`. The wrapper still splats the values into the original strongly typed module
+function. PowerShell parameter binding converts a deserialized `PSCustomObject`, hashtable, or
+ordered dictionary to the target class by using its default constructor and writable properties:
+
+```powershell
+class MyRequest
+{
+    [string] $Name
+    [int] $Count
+}
+
+function Invoke-MyRequest
+{
+    [CmdletBinding()]
+    [APIEndpoint(Name = 'invokeMyRequest', Path = '/request', Method = 'POST')]
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        [MyRequest]
+        $Request
+    )
+
+    $Request
+}
+```
+
+Keep endpoint input classes data-oriented: provide a parameterless constructor and public,
+writable properties. Constructor-only invariants, static factory calls, and custom conversion
+logic are not represented by the wrapper contract and should be validated explicitly inside the
+target command. PSU's HTTP deserializer must still produce an object or dictionary for the
+parameter; a JSON string containing an object is not equivalent to a deserialized object.
+
 ## `APIEndpoint` attribute properties
 
 | Property | Default | Description |

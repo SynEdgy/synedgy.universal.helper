@@ -47,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated API wrappers now pass `-Confirm:$false` to commands that support
   confirmation, preventing high-impact `ShouldProcess` prompts from failing in
   PSU's non-interactive endpoint runspace.
+- Generated API endpoint contracts now expose consuming-module PowerShell class
+  parameters as `[object]` or `[object[]]`. This avoids session-local type
+  resolution failures while preserving conversion to the strongly typed class
+  when the wrapper invokes the original module command.
   
 ## [0.2.0] - 2026-09-17
 
