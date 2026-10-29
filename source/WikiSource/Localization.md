@@ -91,13 +91,13 @@ Give each component a module-owned bundle such as
 and the owning module's configured default:
 
 ```powershell
-$localizedDataParameters = @{
+$psuConfigAddUserButtonStringsParameters = @{
     Name              = 'PSUConfig.AddUserButton'
     Language          = $Language
     DefaultUILanguage = (Get-PSUConfigSetting).DefaultUILanguage
     Cache             = $Cache:PSUConfigLocalization
 }
-$localizedData = Get-PSUComponentLocalizedData @localizedDataParameters
+$psuConfigAddUserButtonStrings = Get-PSUComponentLocalizedData @psuConfigAddUserButtonStringsParameters
 ```
 
 The command selects the requested exact or parent culture when available,
@@ -269,15 +269,15 @@ Import-Module -Name PSUConfig
 
 $module = Get-Module -Name PSUConfig -ErrorAction Stop
 
-$localizedDataParameters = @{
+$psuConfigStringsParameters = @{
     ModuleBase       = $module.ModuleBase
     Name             = $module.Name
     UICulture        = 'fr-CH'
     DefaultUICulture = 'en'
 }
-$strings = Get-PSULocalizedData @localizedDataParameters
+$psuConfigStrings = Get-PSULocalizedData @psuConfigStringsParameters
 
-$strings.HeroTitle
+$psuConfigStrings.HeroTitle
 ```
 
 When a module is used interactively from a shell and one culture applies for the lifetime of the
@@ -285,16 +285,16 @@ module import, it can initialize a script-scoped dictionary from its root module
 
 ```powershell
 # In the PSUConfig root module
-$localizedDataParameters = @{
+$psuConfigStringsParameters = @{
     ModuleBase       = $PSScriptRoot
     Name             = 'PSUConfig'
     DefaultUICulture = 'en'
 }
-$script:localizedData = Get-PSULocalizedData @localizedDataParameters
+$script:psuConfigStrings = Get-PSULocalizedData @psuConfigStringsParameters
 ```
 
 Omitting `UICulture` uses `(Get-UICulture).Name`. Module commands can then read
-`$script:localizedData` without resolving the resource for every invocation.
+`$script:psuConfigStrings` without resolving the resource for every invocation.
 
 To inspect resolution without importing the dictionaries:
 
@@ -346,7 +346,7 @@ function Get-PSUConfigLocalizedData
     )
 
     $module = $MyInvocation.MyCommand.Module
-    $localizedDataParameters = @{
+    $psuConfigStringsParameters = @{
         ModuleBase       = $module.ModuleBase
         Name             = $Name
         UICulture        = $UICulture
@@ -355,15 +355,15 @@ function Get-PSUConfigLocalizedData
 
     if ($PSBoundParameters.ContainsKey('Cache'))
     {
-        $localizedDataParameters.Cache = $Cache
+        $psuConfigStringsParameters.Cache = $Cache
     }
 
     if ($Force)
     {
-        $localizedDataParameters.Force = $true
+        $psuConfigStringsParameters.Force = $true
     }
 
-    Get-PSULocalizedData @localizedDataParameters
+    Get-PSULocalizedData @psuConfigStringsParameters
 }
 ```
 
@@ -371,15 +371,15 @@ The same module command works in an ordinary shell:
 
 ```powershell
 Import-Module -Name PSUConfig
-$strings = Get-PSUConfigLocalizedData -UICulture 'fr-CH'
+$psuConfigStrings = Get-PSUConfigLocalizedData -UICulture 'fr-CH'
 ```
 
 It also works after PSU preloads `synedgy.universal.helper` and PSUConfig into an environment:
 
 ```powershell
 # In a module-backed PSU Script, endpoint, or app runspace
-$strings = Get-PSUConfigLocalizedData -Name 'PSUConfig.Users' -UICulture 'fr'
-$strings.UserTableTitle
+$psuConfigUsersStrings = Get-PSUConfigLocalizedData -Name 'PSUConfig.Users' -UICulture 'fr'
+$psuConfigUsersStrings.UserTableTitle
 ```
 
 ### PSU app-wide cache
@@ -409,12 +409,12 @@ if ($null -eq $Cache:PSUConfigLocalizedData)
 Pass that dictionary through the PSUConfig module wrapper:
 
 ```powershell
-$localizedDataParameters = @{
+$psuConfigUsersStringsParameters = @{
     Name      = 'PSUConfig.Users'
     UICulture = 'fr'
     Cache     = $Cache:PSUConfigLocalizedData
 }
-$strings = Get-PSUConfigLocalizedData @localizedDataParameters
+$psuConfigUsersStrings = Get-PSUConfigLocalizedData @psuConfigUsersStringsParameters
 ```
 
 Both cache layers use a key containing the module base, bundle name, requested culture, and
@@ -423,7 +423,7 @@ module base path changes. Use `-Force` during same-version local development or 
 PSD1 files without restarting the app:
 
 ```powershell
-$strings = Get-PSUConfigLocalizedData @localizedDataParameters -Force
+$psuConfigUsersStrings = Get-PSUConfigLocalizedData @psuConfigUsersStringsParameters -Force
 ```
 
 Both caches store protected copies and each call returns a clone, preventing one endpoint from

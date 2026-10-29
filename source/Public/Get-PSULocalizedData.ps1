@@ -38,12 +38,12 @@ function Get-PSULocalizedData
         module-local and optional shared cached values.
 
         .EXAMPLE
-        $strings = Get-PSULocalizedData -ModuleBase $module.ModuleBase -Name $module.Name -UICulture 'fr-CH' -DefaultUICulture 'en'
+        $psuConfigStrings = Get-PSULocalizedData -ModuleBase $module.ModuleBase -Name 'PSUConfig' -UICulture 'fr-CH' -DefaultUICulture 'en'
 
         Imports and merges the English, French, and Swiss French resources that exist.
 
         .EXAMPLE
-        $strings = Get-PSULocalizedData -ModuleBase $module.ModuleBase -Name $module.Name -UICulture 'fr' -Cache $Cache:LocalizedData
+        $psuConfigStrings = Get-PSULocalizedData -ModuleBase $module.ModuleBase -Name 'PSUConfig' -UICulture 'fr' -Cache $Cache:LocalizedData
 
         Gets localized data using a PSU app-wide cache dictionary.
     #>

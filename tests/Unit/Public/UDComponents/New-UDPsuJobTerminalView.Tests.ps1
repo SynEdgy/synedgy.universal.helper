@@ -149,11 +149,11 @@ Describe 'New-UDPsuJobTerminalView' {
             $functionText = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast.Extent.Text
 
             $functionText | Should -Match "Name\s+= 'synedgy\.universal\.helper\.PsuJobTerminal'"
-            $functionText | Should -Match 'Get-PSUComponentLocalizedData @localizedDataParameters'
-            $functionText | Should -Match '\$localizedDataJson = \$localizedData \| ConvertTo-Json -Compress'
+            $functionText | Should -Match 'Get-PSUComponentLocalizedData @psuJobTerminalStringsParameters'
+            $functionText | Should -Match '\$psuJobTerminalStringsJson = \$psuJobTerminalStrings \| ConvertTo-Json -Compress'
             $functionText | Should -Match 'ArgumentList\[8\]'
             $functionText | Should -Match 'ConvertFrom-Json .* -AsHashtable'
-            ([regex]::Matches($functionText, '\$localizedDataJson').Count) | Should -BeGreaterOrEqual 5
+            ([regex]::Matches($functionText, '\$psuJobTerminalStringsJson').Count) | Should -BeGreaterOrEqual 5
         }
     }
 
@@ -161,12 +161,12 @@ Describe 'New-UDPsuJobTerminalView' {
         InModuleScope -ScriptBlock {
             $functionText = (Get-Command -Name New-UDPsuJobTerminalView).ScriptBlock.Ast.Extent.Text
 
-            $functionText | Should -Match '\$localizedData\.OutputTab'
-            $functionText | Should -Match '\$localizedData\.StructuredEventsTab'
-            $functionText | Should -Match '\$localizedData\.ToggleLineNumbers'
-            $functionText | Should -Match '\$dynLocalizedData\.FetchedAt'
-            $functionText | Should -Match '\$strings\.LiveOutputUnavailable'
-            $functionText | Should -Match '\$strings\.TimestampColumn'
+            $functionText | Should -Match '\$psuJobTerminalStrings\.OutputTab'
+            $functionText | Should -Match '\$psuJobTerminalStrings\.StructuredEventsTab'
+            $functionText | Should -Match '\$psuJobTerminalStrings\.ToggleLineNumbers'
+            $functionText | Should -Match '\$dynPsuJobTerminalStrings\.FetchedAt'
+            $functionText | Should -Match '\$psuJobTerminalStrings\.LiveOutputUnavailable'
+            $functionText | Should -Match '\$psuJobTerminalStrings\.TimestampColumn'
         }
     }
 

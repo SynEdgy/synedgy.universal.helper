@@ -159,14 +159,14 @@ function New-UDPsuJobTerminalView
         $DefaultUILanguage = 'en'
     )
 
-    $localizedDataParameters = @{
+    $psuJobTerminalStringsParameters = @{
         Name              = 'synedgy.universal.helper.PsuJobTerminal'
         Language          = $Language
         DefaultUILanguage = $DefaultUILanguage
     }
 
-    $localizedData = Get-PSUComponentLocalizedData @localizedDataParameters
-    $localizedDataJson = $localizedData | ConvertTo-Json -Compress
+    $psuJobTerminalStrings = Get-PSUComponentLocalizedData @psuJobTerminalStringsParameters
+    $psuJobTerminalStringsJson = $psuJobTerminalStrings | ConvertTo-Json -Compress
 
     $resolvedAppToken = $AppToken
     $helperModulePath = $MyInvocation.MyCommand.Module.Path
@@ -230,8 +230,8 @@ function New-UDPsuJobTerminalView
             }
 
             $streamLabel = switch ($_.Name) {
-                'Error' { $localizedData.StreamError }; 'Warning' { $localizedData.StreamWarning }; 'Information' { $localizedData.StreamInformation }
-                'Verbose' { $localizedData.StreamVerbose }; 'Debug' { $localizedData.StreamDebug }; Default { $_.Name }
+                'Error' { $psuJobTerminalStrings.StreamError }; 'Warning' { $psuJobTerminalStrings.StreamWarning }; 'Information' { $psuJobTerminalStrings.StreamInformation }
+                'Verbose' { $psuJobTerminalStrings.StreamVerbose }; 'Debug' { $psuJobTerminalStrings.StreamDebug }; Default { $_.Name }
             }
 
             "<span style='color:{0};'>{1}:&thinsp;{2}</span>" -f $c, [System.Net.WebUtility]::HtmlEncode($streamLabel), $_.Count
@@ -242,12 +242,12 @@ function New-UDPsuJobTerminalView
         '{0}{1}' -f (
             $statusStreamSpans -join "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span>"
         ), (
-            "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span><span style='color:var(--psu-term-muted-fg);'>{0}:&nbsp;{1}</span>" -f [System.Net.WebUtility]::HtmlEncode($localizedData.EventsLabel), @($initialDisplayRows).Count
+            "<span style='color:var(--psu-term-border);padding:0 6px;'>|</span><span style='color:var(--psu-term-muted-fg);'>{0}:&nbsp;{1}</span>" -f [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.EventsLabel), @($initialDisplayRows).Count
         )
     }
     else
     {
-        "<span style='color:var(--psu-term-muted-fg);'>{0}:&nbsp;0</span>" -f [System.Net.WebUtility]::HtmlEncode($localizedData.EventsLabel)
+        "<span style='color:var(--psu-term-muted-fg);'>{0}:&nbsp;0</span>" -f [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.EventsLabel)
     }
 
     # --- Inline SVG assets from module images ---
@@ -260,7 +260,7 @@ function New-UDPsuJobTerminalView
         $wmSvg   = ConvertTo-UDPsuThemedIconMarkup -ModuleBase $moduleBase -IdPrefix ('{0}-wm' -f $ElementId)   -ExtraStyle 'height:100%;width:auto;'         -Theme $Theme
         if ($iconSvg)
         {
-            $svgIconHtml = '<span style="padding:4px 8px 4px 12px;display:flex;align-items:center;">{0}</span><span style="padding:0 14px 0 0;color:var(--psu-term-fg);font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">{1}</span>' -f $iconSvg, [System.Net.WebUtility]::HtmlEncode($localizedData.TerminalLabel)
+            $svgIconHtml = '<span style="padding:4px 8px 4px 12px;display:flex;align-items:center;">{0}</span><span style="padding:0 14px 0 0;color:var(--psu-term-fg);font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;letter-spacing:2px;display:flex;align-items:center;border-right:1px solid var(--psu-term-border);">{1}</span>' -f $iconSvg, [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.TerminalLabel)
         }
 
         if ($wmSvg)
@@ -315,7 +315,7 @@ function New-UDPsuJobTerminalView
         "try{{localStorage.setItem('{0}-ln',off?'0':'1')}}catch(e){{}}" -f $ElementId
     ) -join ''
     $lnToggleBtn = @(
-        '<button id="{0}-ln-toggle" onclick="{1}" data-tip="{2}" ' -f $ElementId, $lnToggleJs, [System.Net.WebUtility]::HtmlEncode($localizedData.ToggleLineNumbers)
+        '<button id="{0}-ln-toggle" onclick="{1}" data-tip="{2}" ' -f $ElementId, $lnToggleJs, [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.ToggleLineNumbers)
         'onmouseenter="{0}" onmouseleave="{1}" ' -f $tipShow, $tipHide
         'style="padding:4px 10px;background:transparent;border:none;cursor:pointer;'
         'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;font-weight:700;'
@@ -332,7 +332,7 @@ function New-UDPsuJobTerminalView
         "try{{localStorage.setItem('{0}-ts',off?'0':'1')}}catch(e){{}}" -f $ElementId
     ) -join ''
     $tsToggleBtn = @(
-        '<button id="{0}-ts-toggle" onclick="{1}" data-tip="{2}" ' -f $ElementId, $tsToggleJs, [System.Net.WebUtility]::HtmlEncode($localizedData.ToggleTimestamps)
+        '<button id="{0}-ts-toggle" onclick="{1}" data-tip="{2}" ' -f $ElementId, $tsToggleJs, [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.ToggleTimestamps)
         'onmouseenter="{0}" onmouseleave="{1}" ' -f $tipShow, $tipHide
         'style="padding:4px 8px;background:transparent;border:none;cursor:pointer;'
         'color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:13px;'
@@ -367,8 +367,8 @@ function New-UDPsuJobTerminalView
         $titleBarHtml = @(
             '<div style="display:flex;align-items:stretch;height:100%;width:100%;">'
             $iconSpan
-            '<button role="tab" id="{0}-cbtn-terminal" onclick="{1}" style="padding:8px 16px;background:var(--psu-term-tab-active-bg);color:var(--psu-term-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid var(--psu-term-accent);outline:none;">{2}</button>' -f $ElementId, $onClickTerminal, [System.Net.WebUtility]::HtmlEncode($localizedData.OutputTab)
-            '<button role="tab" id="{0}-cbtn-structured" onclick="{1}" style="padding:8px 16px;background:transparent;color:var(--psu-term-muted-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid transparent;outline:none;">{2}</button>' -f $ElementId, $onClickStructured, [System.Net.WebUtility]::HtmlEncode($localizedData.StructuredEventsTab)
+            '<button role="tab" id="{0}-cbtn-terminal" onclick="{1}" style="padding:8px 16px;background:var(--psu-term-tab-active-bg);color:var(--psu-term-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid var(--psu-term-accent);outline:none;">{2}</button>' -f $ElementId, $onClickTerminal, [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.OutputTab)
+            '<button role="tab" id="{0}-cbtn-structured" onclick="{1}" style="padding:8px 16px;background:transparent;color:var(--psu-term-muted-fg);border:none;border-right:1px solid var(--psu-term-border);cursor:pointer;font-family:Consolas,Monaco,monospace;font-size:12px;border-bottom:2px solid transparent;outline:none;">{2}</button>' -f $ElementId, $onClickStructured, [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.StructuredEventsTab)
             $toggleBtns
             '</div>'
         ) -join ''
@@ -378,7 +378,7 @@ function New-UDPsuJobTerminalView
         $titleBarHtml = @(
             '<div style="display:flex;align-items:center;height:100%;width:100%;">'
             $iconSpan
-            '<span style="color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:12px;padding:0 12px;display:flex;align-items:center;">{0}</span>' -f [System.Net.WebUtility]::HtmlEncode($localizedData.OutputTab)
+            '<span style="color:var(--psu-term-muted-fg);font-family:Consolas,Monaco,monospace;font-size:12px;padding:0 12px;display:flex;align-items:center;">{0}</span>' -f [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.OutputTab)
             $toggleBtns
             '</div>'
         ) -join ''
@@ -407,7 +407,7 @@ function New-UDPsuJobTerminalView
         $dynEid     = [string]$ArgumentList[5]   # ElementId for CSS class scoping
         $dynModulePath = [string]$ArgumentList[6]
         $dynFallback = @($ArgumentList[7] | ForEach-Object { $_ })
-        $dynLocalizedData = ConvertFrom-Json -InputObject ([string]$ArgumentList[8]) -AsHashtable
+        $dynPsuJobTerminalStrings = ConvertFrom-Json -InputObject ([string]$ArgumentList[8]) -AsHashtable
 
         $helperModule = $null
         $moduleError = $null
@@ -436,7 +436,7 @@ function New-UDPsuJobTerminalView
             try
             {
                 & $helperModule {
-                    param($jobId, $token, $url, $fallback, $max, $view, $eid, $strings)
+                    param($jobId, $token, $url, $fallback, $max, $view, $eid, $psuJobTerminalStrings)
                     $logResource = 'New-UDPsuJobTerminalView:{0}' -f $eid
                     $fetchParams = @{
                         JobId          = $jobId
@@ -469,13 +469,13 @@ function New-UDPsuJobTerminalView
                     $noticeMarkup = if (-not [string]::IsNullOrWhiteSpace($outputResult.ErrorMessage))
                     {
                         $encodedError = [System.Net.WebUtility]::HtmlEncode($outputResult.ErrorMessage)
-                        $snapshotText = if ($outputResult.UsedFallback) { [System.Net.WebUtility]::HtmlEncode($strings.SnapshotSuffix) } else { '' }
-                        $noticeText = [System.Net.WebUtility]::HtmlEncode($strings.LiveOutputUnavailable) -f $encodedError, $snapshotText
+                        $snapshotText = if ($outputResult.UsedFallback) { [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.SnapshotSuffix) } else { '' }
+                        $noticeText = [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.LiveOutputUnavailable) -f $encodedError, $snapshotText
                         "<div style='font-family:Consolas,Monaco,monospace;font-size:11px;padding:8px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-warning);border-bottom:1px solid var(--psu-term-border);'>$noticeText</div>"
                     }
                     elseif (@($rows).Count -eq 0)
                     {
-                        "<div style='font-family:Consolas,Monaco,monospace;font-size:11px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-muted-fg);'>{0}</div>" -f [System.Net.WebUtility]::HtmlEncode($strings.NoOutputAvailable)
+                        "<div style='font-family:Consolas,Monaco,monospace;font-size:11px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-muted-fg);'>{0}</div>" -f [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.NoOutputAvailable)
                     }
                     else
                     {
@@ -490,13 +490,13 @@ function New-UDPsuJobTerminalView
                             $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
                             $msgHtml = $_.Message | Convert-PlainTextToHtml
                             $streamLabel = switch ($_.Stream) {
-                                'Error' { $strings.StreamError }; 'Warning' { $strings.StreamWarning }; 'Information' { $strings.StreamInformation }
-                                'Verbose' { $strings.StreamVerbose }; 'Debug' { $strings.StreamDebug }; Default { $_.Stream }
+                                'Error' { $psuJobTerminalStrings.StreamError }; 'Warning' { $psuJobTerminalStrings.StreamWarning }; 'Information' { $psuJobTerminalStrings.StreamInformation }
+                                'Verbose' { $psuJobTerminalStrings.StreamVerbose }; 'Debug' { $psuJobTerminalStrings.StreamDebug }; Default { $_.Stream }
                             }
 
                             "<tr><td class='$lnClass' style='padding:4px 6px 4px 10px;color:var(--psu-term-muted-fg);text-align:right;user-select:none;white-space:nowrap;vertical-align:top;font-variant-numeric:tabular-nums;'>$i</td><td class='$tsClass' style='padding:4px 10px;color:var(--psu-term-muted-fg);white-space:nowrap;vertical-align:top;'>{0}</td><td style='padding:4px 10px;color:{1};font-weight:600;white-space:nowrap;vertical-align:top;'>{2}</td><td style='padding:4px 10px;color:var(--psu-term-fg);white-space:pre-wrap;vertical-align:top;'>{3}</td></tr>" -f [System.Net.WebUtility]::HtmlEncode($ts), $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($streamLabel), $msgHtml
                         })
-                        '{0}<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="{1}" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="{2}" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">{3}</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">{4}</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">{5}</th></tr></thead><tbody>{6}</tbody></table></div>' -f $noticeMarkup, $lnClass, $tsClass, [System.Net.WebUtility]::HtmlEncode($strings.TimestampColumn), [System.Net.WebUtility]::HtmlEncode($strings.StreamColumn), [System.Net.WebUtility]::HtmlEncode($strings.MessageColumn), ($structRows -join '')
+                        '{0}<div style="max-height:500px;overflow:auto;background:var(--psu-term-bg);"><table style="width:100%;border-collapse:collapse;font-family:Consolas,Monaco,monospace;font-size:12px;"><thead><tr><th class="{1}" style="text-align:right;padding:6px 6px 6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;user-select:none;">#</th><th class="{2}" style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">{3}</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">{4}</th><th style="text-align:left;padding:6px 10px;color:var(--psu-term-muted-fg);border-bottom:1px solid var(--psu-term-border);background:var(--psu-term-bg);position:sticky;top:0;">{5}</th></tr></thead><tbody>{6}</tbody></table></div>' -f $noticeMarkup, $lnClass, $tsClass, [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.TimestampColumn), [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.StreamColumn), [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.MessageColumn), ($structRows -join '')
                     }
                     else
                     {
@@ -506,15 +506,15 @@ function New-UDPsuJobTerminalView
                             $ts      = if ($_.Timestamp) { '{0:yyyy-MM-dd HH:mm:ss}' -f ($_.Timestamp -as [datetime]) } else { '' }
                             $msgHtml = $_.Message | Convert-AnsiToHtml
                             $streamLabel = switch ($_.Stream) {
-                                'Error' { $strings.StreamError }; 'Warning' { $strings.StreamWarning }; 'Information' { $strings.StreamInformation }
-                                'Verbose' { $strings.StreamVerbose }; 'Debug' { $strings.StreamDebug }; Default { $_.Stream }
+                                'Error' { $psuJobTerminalStrings.StreamError }; 'Warning' { $psuJobTerminalStrings.StreamWarning }; 'Information' { $psuJobTerminalStrings.StreamInformation }
+                                'Verbose' { $psuJobTerminalStrings.StreamVerbose }; 'Debug' { $psuJobTerminalStrings.StreamDebug }; Default { $_.Stream }
                             }
 
                             "<div style='display:flex;margin:0 0 4px 0;'><span class='$lnClass' style='$lnStyle'>$i</span><span><span class='$tsClass' style='color:var(--psu-term-muted-fg);'>[{0}]</span> <span style='color:{1};font-weight:600;'>[{2}]</span> <span>{3}</span></span></div>" -f $ts, $_.StreamColor, [System.Net.WebUtility]::HtmlEncode($streamLabel), $msgHtml
                         })
                         '{0}<div style="font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.4;max-height:500px;overflow:auto;background:transparent;color:var(--psu-term-fg);padding:12px 14px;position:relative;z-index:1;">{1}</div>' -f $noticeMarkup, ($lines -join '')
                     }
-                } $dynJobId $dynToken $dynUrl $dynFallback ([Int32]$dynMaxRows) $dynView $dynEid $dynLocalizedData
+                } $dynJobId $dynToken $dynUrl $dynFallback ([Int32]$dynMaxRows) $dynView $dynEid $dynPsuJobTerminalStrings
             }
             catch
             {
@@ -530,7 +530,7 @@ function New-UDPsuJobTerminalView
                 } $dynJobId $dynView $dynEid $renderError
 
                 $encodedRenderError = [System.Net.WebUtility]::HtmlEncode($renderError)
-                $renderErrorText = [System.Net.WebUtility]::HtmlEncode($dynLocalizedData.TerminalRenderingFailed) -f $encodedRenderError
+                $renderErrorText = [System.Net.WebUtility]::HtmlEncode($dynPsuJobTerminalStrings.TerminalRenderingFailed) -f $encodedRenderError
                 '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">{0}</div>' -f $renderErrorText
             }
         }
@@ -555,12 +555,12 @@ function New-UDPsuJobTerminalView
             }
 
             $encodedModuleError = [System.Net.WebUtility]::HtmlEncode($moduleError)
-            $moduleErrorText = [System.Net.WebUtility]::HtmlEncode($dynLocalizedData.TerminalHelperUnavailable) -f $encodedModuleError
+            $moduleErrorText = [System.Net.WebUtility]::HtmlEncode($dynPsuJobTerminalStrings.TerminalHelperUnavailable) -f $encodedModuleError
             '<div style="font-family:Consolas,Monaco,monospace;font-size:12px;padding:12px 14px;background:var(--psu-term-bg);color:var(--psu-term-stream-error);">{0}</div>' -f $moduleErrorText
         }
 
         $refreshedAt = '{0:yyyy-MM-dd HH:mm:ss}' -f [datetime]::Now
-        $fetchedText = [System.Net.WebUtility]::HtmlEncode($dynLocalizedData.FetchedAt) -f $refreshedAt
+        $fetchedText = [System.Net.WebUtility]::HtmlEncode($dynPsuJobTerminalStrings.FetchedAt) -f $refreshedAt
         New-UDHtml -Markup ('{0}<div style=''font-family:Consolas,Monaco,monospace;font-size:10px;color:var(--psu-term-muted-fg);padding:2px 14px 4px;background:var(--psu-term-bg);''>{1}</div>' -f $markup, $fetchedText)
     }
 
@@ -604,7 +604,7 @@ function New-UDPsuJobTerminalView
             $termDynParams = @{
                 Id           = $terminalDynamicId
                 Content      = $makeDynContent
-                ArgumentList = @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw), $localizedDataJson)
+                ArgumentList = @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw), $psuJobTerminalStringsJson)
             }
 
             if (-not $isTerminalJob -and $AutoRefreshInterval -gt 0)
@@ -622,13 +622,13 @@ function New-UDPsuJobTerminalView
             New-UDElement -Tag 'div' -Id "$ElementId-panel-structured" -Attributes @{
                 style = @{ display = 'none' }
             } -Content {
-                New-UDDynamic -Id $structuredDynamicId -Content $makeDynContent -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId, $helperModulePath, (, $initialRaw), $localizedDataJson)
+                New-UDDynamic -Id $structuredDynamicId -Content $makeDynContent -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId, $helperModulePath, (, $initialRaw), $psuJobTerminalStringsJson)
             }
         }
 
         # Status bar + refresh button (syncs both dynamics)
         $liveIndicator = if (-not $isTerminalJob) {
-            "<span style='color:var(--psu-term-accent);margin-right:8px;'>&#9679;&nbsp;{0}</span>" -f [System.Net.WebUtility]::HtmlEncode($localizedData.LiveLabel)
+            "<span style='color:var(--psu-term-accent);margin-right:8px;'>&#9679;&nbsp;{0}</span>" -f [System.Net.WebUtility]::HtmlEncode($psuJobTerminalStrings.LiveLabel)
         } else { '' }
 
         New-UDElement -Tag 'div' -Attributes @{
@@ -644,10 +644,10 @@ function New-UDPsuJobTerminalView
         } -Content {
             New-UDHtml -Markup ('{0}{1}' -f $liveIndicator, $statusInner)
             New-UDButton -Variant 'text' -Size 'small' -Icon (New-UDIcon -Icon 'sync') -OnClick {
-                Sync-UDElement -Id $terminalDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw), $localizedDataJson)
+                Sync-UDElement -Id $terminalDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'terminal', $ElementId, $helperModulePath, (, $initialRaw), $psuJobTerminalStringsJson)
                 if ($resolvedIncludeStructuredTable)
                 {
-                    Sync-UDElement -Id $structuredDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId, $helperModulePath, (, $initialRaw), $localizedDataJson)
+                    Sync-UDElement -Id $structuredDynamicId -ArgumentList @($JobId, $resolvedAppToken, $resolvedUrl, $MaxRows, 'structured', $ElementId, $helperModulePath, (, $initialRaw), $psuJobTerminalStringsJson)
                 }
             } -Style @{
                 color      = 'var(--psu-term-muted-fg)'
