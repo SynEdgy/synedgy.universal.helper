@@ -208,11 +208,25 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
             [System.Text.Encoding]::Unicode.GetBytes($command)
         )
         $powerShellPath = (Get-Process -Id $PID).Path
+        $standardOutputPath = Join-Path -Path $TestDrive -ChildPath 'class-parameter-stdout.txt'
+        $standardErrorPath = Join-Path -Path $TestDrive -ChildPath 'class-parameter-stderr.txt'
 
-        $output = & $powerShellPath -NoLogo -NoProfile -EncodedCommand $encodedCommand 2>&1
+        $processParameters = @{
+            FilePath               = $powerShellPath
+            ArgumentList           = @('-NoLogo', '-NoProfile', '-EncodedCommand', $encodedCommand)
+            Wait                   = $true
+            PassThru               = $true
+            RedirectStandardOutput = $standardOutputPath
+            RedirectStandardError  = $standardErrorPath
+        }
+        $process = Start-Process @processParameters
+        $output = @(
+            Get-Content -Path $standardOutputPath -ErrorAction SilentlyContinue
+            Get-Content -Path $standardErrorPath -ErrorAction SilentlyContinue
+        ) -join [System.Environment]::NewLine
 
-        $LASTEXITCODE | Should -Not -Be 0
-        $output | Out-String | Should -Match 'Unable to find type \[EndpointPayload\]'
+        $process.ExitCode | Should -Not -Be 0
+        $output | Should -Match 'Unable to find type \[EndpointPayload\]'
     }
 
     It 'Should execute in a runspace where custom enum and class types are unavailable' {
