@@ -44,6 +44,11 @@ builds a wrapper scriptblock per function via
 each one -- no separate PSU Script resource is required, since `New-PSUEndpoint` accepts an inline
 scriptblock directly.
 
+Arguments supplied to `Import-PSUEndpoint`, including `Environment`, `ApiPrefix`,
+`Documentation`, `Authentication`, `Role`, and `LogLevel`, override values declared by individual
+attributes. Metadata unsupported by the installed `New-PSUEndpoint` command is removed before
+registration.
+
 The target module must still be available in the PSU environment selected for endpoint execution.
 Automatic import here ensures discovery during resource configuration; it does not replace the
 environment's module preload configuration for endpoint runspaces.
@@ -110,7 +115,11 @@ parameter; a JSON string containing an object is not equivalent to a deserialize
 | `Environment` | (none) | PSU environment the endpoint should run in. |
 | `ContentType` | `'application/json; charset=utf-8'` | Content type of the response. |
 | `LogLevel` | `@('Information')` | Log level(s) recorded for the endpoint. |
-| `Parameters` | (none) | Scriptblock overriding the parameters splatted to the target command. |
+| `Parameters` | (none) | Reserved scriptblock for a future parameter override contract. |
+
+`Name`, `AutoSerialization`, and `Parameters` are currently reserved compatibility properties and
+are not consumed during `New-PSUEndpoint` registration. `ContentType` is forwarded only when the
+installed `New-PSUEndpoint` command exposes a matching parameter.
 
 ## Design note: inline scriptblock vs. backing PSU Script
 

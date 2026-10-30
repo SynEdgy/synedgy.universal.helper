@@ -63,6 +63,9 @@ function Invoke-EndpointContract
         [EndpointPayload[]]
         $Payloads,
 
+        [Parameter()]
+        $Untyped,
+
         [Parameter(DontShow)]
         [switch]
         $InternalFlag,
@@ -87,6 +90,7 @@ function Invoke-EndpointContract
             PayloadType      = $Payload.GetType().FullName
             Payloads         = $Payloads
             PayloadsType     = $Payloads.GetType().GetElementType().FullName
+            Untyped          = $Untyped
             InternalToken    = $InternalToken
             InternalFlag     = $InternalFlag.IsPresent
             InternalCount    = $InternalCount
@@ -149,6 +153,10 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
         $script:generatedText | Should -Not -Match '\[EndpointPayload(?:\[\])?\]'
     }
 
+    It 'Should preserve untyped parameters instead of aborting generation' {
+        $script:generatedText | Should -Match '\$untyped'
+    }
+
     It 'omits parameters marked DontShow from the endpoint contract' {
         $script:generatedText | Should -Not -Match 'InternalToken'
         $script:generatedText | Should -Not -Match 'InternalFlag'
@@ -181,6 +189,7 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
             modes    = @('First', 'Second')
             payload  = $payload
             payloads = $payloads
+            untyped  = 'untyped-value'
         }
         $result = & $script:generatedScriptblock @endpointParameters
 
@@ -197,6 +206,7 @@ Describe 'Get-ModuleApiEndpointScriptblock' {
         $result.PayloadType | Should -Be 'EndpointPayload'
         $result.Payloads.Name | Should -Be @('First', 'Second')
         $result.PayloadsType | Should -Be 'EndpointPayload'
+        $result.Untyped | Should -Be 'untyped-value'
         $result.InternalToken | Should -Be 'module-default'
         $result.InternalFlag | Should -BeFalse
         $result.InternalCount | Should -Be 7
@@ -244,7 +254,8 @@ function Invoke-EndpointContract
         [string]$DefaultMode = 'First',
         [string[]]$DefaultModes = @('First', 'Second'),
         [object]$Payload,
-        [object[]]$Payloads
+        [object[]]$Payloads,
+        $Untyped
     )
 
     [pscustomobject]@{
@@ -255,12 +266,13 @@ function Invoke-EndpointContract
         DefaultModes = $DefaultModes
         Payload      = $Payload
         Payloads     = $Payloads
+        Untyped      = $Untyped
     }
 }
 
 & {
 __GENERATED_SCRIPTBLOCK__
-} -mode Second -force $true -modes First, Second -payload @{ Name = 'Primary'; Count = 1 }
+} -mode Second -force $true -modes First, Second -payload @{ Name = 'Primary'; Count = 1 } -untyped 'untyped-value'
 '@ -replace '__GENERATED_SCRIPTBLOCK__', $script:generatedText
 
             $result = $isolatedPowerShell.AddScript($scriptUnderTest).Invoke()
@@ -270,6 +282,7 @@ __GENERATED_SCRIPTBLOCK__
             $result.Force | Should -BeTrue
             $result.Modes | Should -Be @('First', 'Second')
             $result.Payload.Name | Should -Be 'Primary'
+            $result.Untyped | Should -Be 'untyped-value'
         }
         finally
         {

@@ -63,7 +63,7 @@ function Get-ModuleApiEndpointScriptblock
             Select-Object -Last 1
         if (-not $typeConstraint -or -not $parameterMetadata)
         {
-            return
+            continue
         }
 
         $parameterType = $parameterMetadata.ParameterType

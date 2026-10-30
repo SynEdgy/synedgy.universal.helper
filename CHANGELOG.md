@@ -5,8 +5,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Changed generated API endpoint contracts to expose enum parameters as
+  validated strings and switch parameters as Booleans. This keeps PSU resource
+  parsing independent from consuming-module type accelerators while preserving
+  strong parameter binding when the module command is invoked.
+- Parameters marked with `Parameter(DontShow)` are now omitted from generated
+  API endpoint contracts while remaining available to the underlying module
+  command through its own defaults and internal invocation behavior.
+- Generated API wrappers now pass `-Confirm:$false` to commands that support
+  confirmation, preventing high-impact `ShouldProcess` prompts from failing in
+  PSU's non-interactive endpoint runspace.
+- Generated API endpoint contracts now expose consuming-module PowerShell class
+  parameters as `[object]` or `[object[]]`. This avoids session-local type
+  resolution failures while preserving conversion to the strongly typed class
+  when the wrapper invokes the original module command.
+- Endpoint discovery now accepts global `Documentation` and `Role` overrides,
+  resolves prefix and documentation values from each individual attribute,
+  forwards non-empty string tags, and preserves untyped parameters during
+  wrapper generation.
+
+## [0.3.0] - 2026-10-23
+
 ### Added
 
+- Added `Resolve-PSULocalizationResource` and `Get-PSULocalizedData` for resolving
+  and merging data-only PSD1 localization resources stored in culture folders
+  directly below a consuming module's base directory.
+- Added two-layer caching and forced reload support to `Get-PSULocalizedData`.
+  Merged strings are cached in the current module runspace first, with an
+  optional app-wide synchronized `$Cache:` hashtable allowing PSU apps to share
+  values across runspaces.
 - Added recursive localization resource discovery beneath culture directories
   while preserving root-level resource priority and rejecting ambiguous nested
   bundle filenames.
@@ -37,31 +67,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runspace before discovering attributed endpoint functions, so
   `Import-PSUEndpoint` no longer requires the consuming resource file to import
   the endpoint module separately.
-- Changed generated API endpoint contracts to expose enum parameters as
-  validated strings and switch parameters as Booleans. This keeps PSU resource
-  parsing independent from consuming-module type accelerators while preserving
-  strong parameter binding when the module command is invoked.
-- Parameters marked with `Parameter(DontShow)` are now omitted from generated
-  API endpoint contracts while remaining available to the underlying module
-  command through its own defaults and internal invocation behavior.
-- Generated API wrappers now pass `-Confirm:$false` to commands that support
-  confirmation, preventing high-impact `ShouldProcess` prompts from failing in
-  PSU's non-interactive endpoint runspace.
-- Generated API endpoint contracts now expose consuming-module PowerShell class
-  parameters as `[object]` or `[object[]]`. This avoids session-local type
-  resolution failures while preserving conversion to the strongly typed class
-  when the wrapper invokes the original module command.
-  
+
+## [0.2.2] - 2026-10-09
+
+### Changed
+
+- Republished the same source commit as `0.2.1` with the corrected package
+  version.
+
+## [0.2.1] - 2026-10-09
+
+### Changed
+
+- Changed `New-UDPsuJobTerminalView` job output retrieval to use the explicitly
+  supplied `UniversalServerUrl` as `ComputerName`, or `Integrated` when no URL
+  is supplied. The component no longer uses `Get-ModuleConfig` or assumes a
+  localhost PSU URL.
+
 ## [0.2.0] - 2026-09-17
 
 ### Added
 
-- Added `Resolve-PSULocalizationResource` and `Get-PSULocalizedData` for resolving
-  and merging data-only PSD1 localization resources stored in culture folders
-  directly below a consuming module's base directory.
-- Added two-layer caching and forced reload support to `Get-PSULocalizedData`. Merged strings
-  are cached in the current module runspace first, with an optional app-wide
-  synchronized `$Cache:` hashtable allowing PSU apps to share values across runspaces.
 - Added `New-UDPsuJobHeader` and `New-UDPsuJobTerminalView` public functions
   under `UDComponents`, providing reusable Universal Dashboard components to
   render a PSU job summary header and a terminal-style job output view.
@@ -107,11 +133,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-
-- Changed `New-UDPsuJobTerminalView` job output retrieval to use the explicitly
-  supplied `UniversalServerUrl` as `ComputerName`, or `Integrated` when no URL
-  is supplied. The component no longer uses `Get-ModuleConfig` or assumes a
-  localhost PSU URL.
 - `ConvertFrom-PsuJobOutputEntry`'s `StreamColor` property now returns a CSS
   `var(--psu-term-stream-*)` reference instead of a literal hex color, so job
   output stream coloring follows the light/dark theme instead of being fixed to
@@ -170,17 +191,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verbs to HTTP methods.
 - Fixed issue with `ApiPrefix` property not being applied correctly in URL generation.
 - Fixed issue where `Authentication` property in `APIEndpoint` attribute was not
-working.
+  working.
 - Fixed changelog git config to publish PR.
 
 ### Added
 
-- Adding APIEndpoint attribute.
-- Adding `Import-ModuleApiEndpoint` function to import API endpoints from a module.
-- Adding `Get-HttpMethodFromPSVerb` function to convert PowerShell verbs to HTTP
-  methods (GET, POST, PUT, DELETE).
 - Adding support for `Documentation` property in API endpoint metadata. ([#2](https://github.com/SynEdgy/synedgy.universal.helper/issues/2))
 - Adding `ApiPrefix` and `Version` properties to `APIEndpoint` attribute for better
   URL structuring.
 - Adding `[APIInput]` and `[APIOutput]` attributes for defining input and output
   schemas for API endpoint documentation (Not yet implemented).
+
+## [0.1.1] - 2025-11-07
+
+### Added
+
+- Added the `APIEndpoint` attribute.
+- Added `Import-ModuleApiEndpoint` to import API endpoints from a module.
+- Added `Get-HttpMethodFromPSVerb` to convert PowerShell verbs to HTTP methods
+  (`GET`, `POST`, `PUT`, and `DELETE`).
