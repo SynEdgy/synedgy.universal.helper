@@ -28,6 +28,11 @@ function Import-PSUEndpoint
         $Authentication,
 
         [Parameter()]
+        [string[]]
+        # Force one or more roles on authenticated endpoints.
+        $Role,
+
+        [Parameter()]
         [ValidateSet('Information','Debug', 'Verbose')]
         [string[]]
         $LogLevel = 'Information'
@@ -53,6 +58,11 @@ function Import-PSUEndpoint
     if ($PSBoundParameters.ContainsKey('Authentication'))
     {
         $moduleApiEndpointParams['Authentication'] = $Authentication.IsPresent
+    }
+
+    if ($PSBoundParameters.ContainsKey('Role'))
+    {
+        $moduleApiEndpointParams['Role'] = $Role
     }
 
     if ($PSBoundParameters.ContainsKey('LogLevel'))

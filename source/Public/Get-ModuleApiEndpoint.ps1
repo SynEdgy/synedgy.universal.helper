@@ -36,7 +36,15 @@ function Get-ModuleApiEndpoint
 
         [Parameter()]
         [string]
-        $ApiPrefix
+        $ApiPrefix,
+
+        [Parameter()]
+        [string]
+        $Documentation,
+
+        [Parameter()]
+        [string[]]
+        $Role
     )
 
     $importModuleParameters = @{
@@ -71,24 +79,25 @@ function Get-ModuleApiEndpoint
         {
             $urlPath        = $ApiEndpoint.Path
             $version        = $ApiEndpoint.version
-            $Name           = $ApiEndpoint.Name
 
-            if ($PSBoundParameters.ContainsKey('ApiPrefix'))
+            $resolvedApiPrefix = if ($PSBoundParameters.ContainsKey('ApiPrefix'))
             {
                 Write-Debug -Message ('Using ApiPrefix from Parameter (override) {0}' -f $ApiPrefix)
+                $PSBoundParameters['ApiPrefix']
             }
-            elseif (-not [string]::IsNullOrEmpty($ApiEndpoints.ApiPrefix))
+            else
             {
-                $ApiPrefix = $ApiEndpoint.ApiPrefix
+                $ApiEndpoint.ApiPrefix
             }
 
-            if ($PSBoundParameters.ContainsKey('Documentation'))
+            $documentation = if ($PSBoundParameters.ContainsKey('Documentation'))
             {
                 Write-Debug -Message ('Using documentation from Parameter (override) {0}' -f $Documentation)
+                $PSBoundParameters['Documentation']
             }
-            elseif (-not [string]::IsNullOrEmpty($ApiEndpoints.Documentation))
+            else
             {
-                $Documentation = $ApiEndpoint.Documentation
+                $ApiEndpoint.Documentation
             }
 
             if ([string]::IsNullOrEmpty($urlPath))
@@ -106,15 +115,10 @@ function Get-ModuleApiEndpoint
             else
             {
                 # Building the /api/v1/endpoint style URL
-                $url = (('/{0}/{1}/{2}' -f $apiPrefix, $version, $urlPath.TrimStart('/')).ToLower()) -replace '//', '/'
+                $url = (('/{0}/{1}/{2}' -f $resolvedApiPrefix, $version, $urlPath.TrimStart('/')).ToLower()) -replace '//', '/'
             }
 
             Write-Information -MessageData "Processing endpoint: $url for function: $($functionEndpoint.Name)"
-            if ([string]::IsNullOrEmpty($Name))
-            {
-                $Name = '{0}{1}{2}' -f $functionEndpoint.verb.ToLower(), $functionEndpoint.Noun, $version
-            }
-
             $description = $ApiEndpoint.Description
             if ([string]::IsNullOrEmpty($description))
             {
@@ -177,7 +181,7 @@ function Get-ModuleApiEndpoint
                 $apiEndpointData['Role'] = $ApiEndpoint.Role
             }
 
-            if ($ApiEndpoint.Tag -gt 0)
+            if (-not [string]::IsNullOrEmpty($ApiEndpoint.Tag))
             {
                 $apiEndpointData['Tag'] = $ApiEndpoint.Tag
             }
